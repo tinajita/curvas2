@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MotoRadar Vectorial Puro</title>
+    <title>MotoRadar Vectorial Fijo</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -14,15 +14,22 @@
             margin: 0; padding: 0;
             font-family: 'Segoe UI', Arial, sans-serif;
             height: 100vh; display: flex; flex-direction: column;
-            background-color: #111111; overflow: hidden; /* Fondo negro noche */
+            background-color: #0b0b0c; overflow: hidden;
         }
 
+        /* Contenedor del mapa con fondo negro absoluto para eliminar el cuadro blanco */
         #map { 
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            z-index: 1; background-color: #111111 !important; /* Eliminamos fondo blanco de Leaflet */
+            z-index: 1; 
+            background: #0b0b0c !important;
         }
 
-        /* Capa de color translúcido para alertas en visión periférica */
+        /* Forzamos que Leaflet no pinte contenedores ocultos o bordes grises */
+        .leaflet-pane, .leaflet-tile, .leaflet-marker-icon { 
+            background: transparent !important; 
+            border: none !important;
+        }
+
         #filtro-alerta {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
             z-index: 2; pointer-events: none;
@@ -30,23 +37,21 @@
             transition: background-color 0.2s ease;
         }
 
-        /* Cuadro de información superior (Z-INDEX alto, siempre visible) */
         #capa-alerta {
             position: absolute; top: 20px; left: 50%; transform: translateX(-50%); 
-            z-index: 10; background-color: rgba(15, 15, 15, 0.92); border-radius: 20px; padding: 12px 25px;
+            z-index: 10; background-color: rgba(15, 15, 15, 0.95); border-radius: 20px; padding: 12px 25px;
             display: flex; align-items: center; gap: 20px; backdrop-filter: blur(8px);
-            border: 2px solid #333; min-width: 300px; justify-content: center;
-            box-shadow: 0px 6px 20px rgba(0,0,0,0.8);
+            border: 2px solid #222; min-width: 300px; justify-content: center;
+            box-shadow: 0px 6px 20px rgba(0,0,0,0.9);
         }
         #flecha { font-size: 65px; font-weight: bold; line-height: 1; }
         #datos-curva { display: flex; flex-direction: column; }
         #distancia { font-size: 26px; font-weight: bold; color: white; }
         #estado { font-size: 13px; color: #888; margin-top: 2px; font-weight: bold; }
 
-        /* Panel de descarga en casa (WiFi) */
         #config-casa {
             position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); 
-            z-index: 10; background: #151515; padding: 18px; border-radius: 14px;
+            z-index: 10; background: #111112; padding: 18px; border-radius: 14px;
             width: 90%; max-width: 380px; text-align: center; border: 2px solid #007bef;
             box-shadow: 0px 10px 25px rgba(0,0,0,0.9);
         }
@@ -54,10 +59,9 @@
         input { background: #222; color: white; border: 1px solid #444; text-align: center; }
         button { background: #007bef; color: white; font-weight: bold; cursor: pointer; }
 
-        /* Estilo para las etiquetas de los pueblos */
         .etiqueta-pueblo {
             background: transparent !important; border: none !important; box-shadow: none !important;
-            color: #8aa4af !important; font-weight: bold; font-size: 11px; text-shadow: 1px 1px 2px #000;
+            color: #798e9c !important; font-weight: bold; font-size: 11px; text-shadow: 1px 1px 3px #000;
         }
     </style>
 </head>
@@ -76,7 +80,7 @@
 
     <div id="config-casa">
         <label style="color: white; font-weight: bold; font-size: 14px;">🏠 Descarga de Provincia (WiFi):</label>
-        <input type="text" id="zona-input" value="Málaga" placeholder="Ej: Málaga, Granada, Madrid...">
+        <input type="text" id="zona-input" value="Málaga" placeholder="Ej: Málaga, Granada...">
         <button onclick="descargarYProcesarTodo()">📥 Cargar Carreteras y Pueblos</button>
     </div>
 
@@ -92,23 +96,37 @@
         let grupoPueblos = null;
         let curvasZonaOffline = [];
 
-        // Motor 60 FPS
+        // Modo seguimiento: Si el usuario mueve el mapa con el dedo, desactivamos el centrado automático para dejarle mirar libremente
+        let usuarioMoviendoMapa = false; 
+
         let posActual = { lat: 40.4167, lon: -3.7037 };
         let posObjetivo = { lat: 40.4167, lon: -3.7037 };
         const FACTOR_SUAVIZADO = 0.12; 
 
         function inicializarMapa() {
-            // ELIMINADA la capa de imágenes de internet. Ahora solo se pinta con Canvas (código puro)
+            // Habilitamos arrastrar, zoom y doble tap con total libertad táctil
             mapa = L.map('map', { 
-                zoomControl: false, attributionControl: false, preferCanvas: true 
+                zoomControl: false, 
+                attributionControl: false, 
+                preferCanvas: true,
+                dragging: true,
+                touchZoom: true,
+                scrollWheelZoom: true
             }).setView([posActual.lat, posActual.lon], 6); 
 
             const iconoMoto = L.divIcon({
-                html: '<span style="font-size: 32px;">🏍️</span>',
+                html: '<span style="font-size: 32px; background:none; border:none;">🏍️</span>',
+                className: 'marcador-limpio',
                 iconAnchor: [16, 16]
             });
             marcadorMoto = L.marker([posActual.lat, posActual.lon], { icon: iconoMoto }).addTo(mapa);
             grupoPueblos = L.layerGroup().addTo(mapa);
+
+            // Detectar si el usuario toca el mapa para dejar de centrar la pantalla a la fuerza
+            mapa.on('movestart', () => { usuarioMoviendoMapa = true; });
+            
+            // Botón secreto: si haces doble click en la pantalla, vuelve a enganchar el GPS de la moto
+            mapa.on('dblclick', () => { usuarioMoviendoMapa = false; });
 
             bucleAnimacionFluida();
         }
@@ -117,7 +135,10 @@
             posActual.lat += (posObjetivo.lat - posActual.lat) * FACTOR_SUAVIZADO;
             posActual.lon += (posObjetivo.lon - posActual.lon) * FACTOR_SUAVIZADO;
             marcadorMoto.setLatLng([posActual.lat, posActual.lon]);
-            mapa.panTo([posActual.lat, posActual.lon], { animate: false }); 
+            
+            if (!usuarioMoviendoMapa) {
+                mapa.panTo([posActual.lat, posActual.lon], { animate: false }); 
+            }
             requestAnimationFrame(bucleAnimacionFluida);
         }
 
@@ -160,16 +181,11 @@
                         let coordenadas = el.geometry.map(p => [p.lat, p.lon]);
                         if(!primerPuntoValido) primerPuntoValido = coordenadas[0];
 
-                        // Líneas grises atenuadas que simulan el asfalto secundario de fondo
                         let poly = L.polyline(coordenadas, {
-                            color: '#333333', weight: 3, opacity: 0.85
+                            color: '#222224', weight: 3, opacity: 0.9
                         }).addTo(mapa);
 
-                        capasCarreteras.push({
-                            puntos: coordenadas,
-                            objetoGrafico: poly
-                        });
-
+                        capasCarreteras.push({ puntos: coordenadas, objetoGrafico: poly });
                         calcularCurvasCarretera(el.geometry);
                     }
                     else if (el.type === "node" && el.tags && el.tags.name) {
@@ -189,8 +205,9 @@
                     mapa.setView([primerPuntoValido[0], primerPuntoValido[1]], 14);
                 }
 
+                usuarioMoviendoMapa = false; 
                 distanciaEl.innerText = "¡Listo!";
-                estadoEl.innerText = `${curvasZonaOffline.length} curvas cargadas en ${zona}.`;
+                estadoEl.innerText = `${curvasZonaOffline.length} curvas cargadas.`;
                 document.getElementById('config-casa').style.display = 'none';
 
             } catch (error) {
@@ -221,24 +238,22 @@
             posObjetivo.lat = position.coords.latitude;
             posObjetivo.lon = position.coords.longitude;
 
-            // RESALTADO EN AZUL DE TU CARRETERA ACTUAL
             capasCarreteras.forEach(carretera => {
                 let motoCercaDeEstaCarretera = false;
                 for(let p of carretera.puntos) {
-                    if(calcularDistancia(posObjetivo.lat, posObjetivo.lon, p[0], p[1]) < 25) {
+                    if(calcularDistancia(posObjetivo.lat, posObjetivo.lon, p[0], p[1]) < 30) {
                         motoCercaDeEstaCarretera = true;
                         break;
                     }
                 }
 
                 if (motoCercaDeEstaCarretera) {
-                    carretera.objetoGrafico.setStyle({ color: '#00d2ff', weight: 6, opacity: 1 }); // Azul eléctrico encima
+                    carretera.objetoGrafico.setStyle({ color: '#00d2ff', weight: 6, opacity: 1 });
                 } else {
-                    carretera.objetoGrafico.setStyle({ color: '#333333', weight: 3, opacity: 0.85 }); // Gris atenuado de fondo
+                    carretera.objetoGrafico.setStyle({ color: '#222224', weight: 3, opacity: 0.9 });
                 }
             });
 
-            // DETECCIÓN DE CURVAS
             if (curvasZonaOffline.length === 0) return;
             let curvaCercana = null; let distanciaMinima = Infinity;
 
