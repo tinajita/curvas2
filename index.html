@@ -2,8 +2,8 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MotoRadar Vectorial Fijo</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MotoRadar Auto-Centrado Inteligente</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -17,14 +17,12 @@
             background-color: #0b0b0c; overflow: hidden;
         }
 
-        /* Contenedor del mapa con fondo negro absoluto para eliminar el cuadro blanco */
         #map { 
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
             z-index: 1; 
             background: #0b0b0c !important;
         }
 
-        /* Forzamos que Leaflet no pinte contenedores ocultos o bordes grises */
         .leaflet-pane, .leaflet-tile, .leaflet-marker-icon { 
             background: transparent !important; 
             border: none !important;
@@ -96,39 +94,58 @@
         let grupoPueblos = null;
         let curvasZonaOffline = [];
 
-        // Modo seguimiento: Si el usuario mueve el mapa con el dedo, desactivamos el centrado automático para dejarle mirar libremente
-        let usuarioMoviendoMapa = false; 
+        // Lógica del centrado inteligente
+        let modoSeguimientoActivo = true; 
+        let temporizadorLiberacion = null;
 
         let posActual = { lat: 40.4167, lon: -3.7037 };
         let posObjetivo = { lat: 40.4167, lon: -3.7037 };
         const FACTOR_SUAVIZADO = 0.12; 
 
         function inicializarMapa() {
-            // Habilitamos arrastrar, zoom y doble tap con total libertad táctil
+            // Forzamos controles nativos y fluidos para pantallas táctiles móviles
             mapa = L.map('map', { 
                 zoomControl: false, 
                 attributionControl: false, 
                 preferCanvas: true,
                 dragging: true,
                 touchZoom: true,
-                scrollWheelZoom: true
+                tap: false // Desactivar retraso de click en móviles
             }).setView([posActual.lat, posActual.lon], 6); 
 
             const iconoMoto = L.divIcon({
-                html: '<span style="font-size: 32px; background:none; border:none;">🏍️</span>',
+                html: '<span style="font-size: 32px;">🏍️</span>',
                 className: 'marcador-limpio',
                 iconAnchor: [16, 16]
             });
             marcadorMoto = L.marker([posActual.lat, posActual.lon], { icon: iconoMoto }).addTo(mapa);
             grupoPueblos = L.layerGroup().addTo(mapa);
 
-            // Detectar si el usuario toca el mapa para dejar de centrar la pantalla a la fuerza
-            mapa.on('movestart', () => { usuarioMoviendoMapa = true; });
-            
-            // Botón secreto: si haces doble click en la pantalla, vuelve a enganchar el GPS de la moto
-            mapa.on('dblclick', () => { usuarioMoviendoMapa = false; });
+            // CONTROL TÁCTIL: Cuando el usuario arrastra con 1 dedo o hace zoom
+            mapa.on('movestart', (e) => {
+                // Si el movimiento viene del dedo del usuario, pausamos el centrado automático
+                if (e.target._mapObject._manuallyMoved || modoSeguimientoActivo) {
+                    pausarSeguimientoTemporal();
+                }
+            });
+
+            // Marcamos de forma interna si el mapa se mueve por arrastre manual
+            mapa.on('drag', () => { modoSeguimientoActivo = false; });
+            mapa.on('zoomstart', () => { modoSeguimientoActivo = false; });
 
             bucleAnimacionFluida();
+        }
+
+        function pausarSeguimientoTemporal() {
+            modoSeguimientoActivo = false;
+            
+            // Limpiamos cualquier cuenta atrás anterior para que no se pisen
+            clearTimeout(temporizadorLiberacion);
+            
+            // Iniciamos una cuenta atrás de 6 segundos (6000 milisegundos)
+            temporizadorLiberacion = setTimeout(() => {
+                modoSeguimientoActivo = true; // Tras 6 segundos, la pantalla vuelve suavemente al GPS
+            }, 6000);
         }
 
         function bucleAnimacionFluida() {
@@ -136,7 +153,8 @@
             posActual.lon += (posObjetivo.lon - posActual.lon) * FACTOR_SUAVIZADO;
             marcadorMoto.setLatLng([posActual.lat, posActual.lon]);
             
-            if (!usuarioMoviendoMapa) {
+            // Solo movemos el mapa si el usuario no ha tocado la pantalla en los últimos 6 segundos
+            if (modoSeguimientoActivo) {
                 mapa.panTo([posActual.lat, posActual.lon], { animate: false }); 
             }
             requestAnimationFrame(bucleAnimacionFluida);
@@ -205,7 +223,7 @@
                     mapa.setView([primerPuntoValido[0], primerPuntoValido[1]], 14);
                 }
 
-                usuarioMoviendoMapa = false; 
+                modoSeguimientoActivo = true; 
                 distanciaEl.innerText = "¡Listo!";
                 estadoEl.innerText = `${curvasZonaOffline.length} curvas cargadas.`;
                 document.getElementById('config-casa').style.display = 'none';
