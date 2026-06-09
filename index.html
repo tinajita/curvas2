@@ -3,26 +3,49 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MotoCurvas Inteligente</title>
+    <title>MotoCurvas OSM Offline Completo</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
     <style>
         * { box-sizing: border-box; }
         body {
             margin: 0; padding: 0;
-            font-family: Arial, sans-serif;
-            display: flex; flex-direction: column;
-            justify-content: space-between; align-items: center;
-            height: 100vh; color: white;
-            background-color: #2e7d32; /* Verde por defecto */
-            transition: background-color 0.3s ease;
-            padding: 20px;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background-color: #1a1a1a;
+            overflow: hidden;
         }
 
-        /* Cuadro de preparación en casa (WiFi) */
+        /* Contenedor del Mapa (Ocupa toda la pantalla de fondo) */
+        #map {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 1;
+        }
+
+        /* CAPA DE COLOR CRUCIAL: Filtro translúcido sobre el mapa para dar la alerta sin taparlo */
+        #filtro-alerta {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 2;
+            pointer-events: none; /* Permite que sigas pudiendo tocar el mapa */
+            background-color: rgba(46, 125, 50, 0.25); /* Verde suave por defecto */
+            transition: background-color 0.3s ease;
+        }
+
+        /* Panel Superior para usar EN CASA (WiFi) */
         #config-casa {
-            background: rgba(0,0,0,0.85);
+            position: absolute;
+            top: 15px; left: 50%; transform: translateX(-50%);
+            z-index: 10;
+            background: rgba(0,0,0,0.9);
             padding: 15px; border-radius: 12px;
-            width: 100%; max-width: 400px; text-align: center;
-            border: 1px solid rgba(255,255,255,0.2);
+            width: 90%; max-width: 380px; text-align: center;
+            border: 2px solid #007bef;
         }
         input, button {
             width: 100%; padding: 10px; margin-top: 8px;
@@ -30,58 +53,90 @@
         }
         button { background: #007bef; color: white; font-weight: bold; cursor: pointer; }
 
-        /* Flecha Central */
-        #flecha { font-size: 200px; font-weight: bold; line-height: 1; }
-
-        /* Info de Navegación */
-        footer {
-            width: 100%; text-align: center;
-            background-color: rgba(0, 0, 0, 0.6); padding: 15px;
-            border-radius: 15px; backdrop-filter: blur(10px);
+        /* Cuadro de Mandos Superior (En marcha) */
+        #capa-alerta {
+            position: absolute;
+            top: 20px; left: 50%; transform: translateX(-50%);
+            z-index: 9;
+            background-color: rgba(0, 0, 0, 0.85);
+            border-radius: 20px;
+            padding: 12px 25px;
+            display: flex; align-items: center; gap: 20px;
+            backdrop-filter: blur(5px);
+            border: 2px solid white;
+            min-width: 290px; justify-content: center;
+            box-shadow: 0px 4px 15px rgba(0,0,0,0.5);
         }
-        #distancia { font-size: 36px; font-weight: bold; }
-        #estado { font-size: 14px; opacity: 0.8; margin-top: 5px; }
+        #flecha { font-size: 65px; font-weight: bold; line-height: 1; }
+        #datos-curva { display: flex; flex-direction: column; }
+        #distancia { font-size: 26px; font-weight: bold; color: white; }
+        #estado { font-size: 13px; color: #ccc; }
+
+        /* Icono de la moto en el mapa */
+        .marcador-moto { text-shadow: 0px 2px 5px rgba(0,0,0,0.5); }
     </style>
 </head>
 <body>
 
+    <div id="map"></div>
+
+    <div id="filtro-alerta"></div>
+
     <div id="config-casa">
-        <label>🏠 Configuración en Casa (WiFi):</label>
-        <input type="text" id="zona-input" value="Granada" placeholder="Ej: Granada, Asturias, Madrid...">
-        <button onclick="descargarYProcesarZona()">📥 Descargar y Procesar Zona</button>
+        <label style="color: white; font-weight: bold;">🏠 Precarga WiFi en Casa:</label>
+        <input type="text" id="zona-input" value="Granada" placeholder="Ej: Granada, Madrid, Asturias...">
+        <button onclick="descargarYProcesarZona()">📥 Descargar Mapa y Curvas</button>
     </div>
 
-    <main>
+    <div id="capa-alerta">
         <div id="flecha">⬆️</div>
-    </main>
-
-    <footer>
-        <div id="distancia">App Lista</div>
-        <div id="estado">Introduce una zona arriba y dale a descargar con WiFi</div>
-    </footer>
+        <div id="datos-curva">
+            <div id="distancia">App Lista</div>
+            <div id="estado">Introduce zona con WiFi</div>
+        </div>
+    </div>
 
     <script>
-        const body = document.body;
+        const filtroAlerta = document.getElementById('filtro-alerta');
         const flechaEl = document.getElementById('flecha');
         const distanciaEl = document.getElementById('distancia');
         const estadoEl = document.getElementById('estado');
 
-        // Aquí se guardará el "mini-mapa" de curvas calculado automáticamente
+        let mapa;
+        let marcadorMoto;
         let curvasZonaOffline = [];
 
-        // 1. CONEXIÓN AUTOMÁTICA A OPENSTREETMAP (EN CASA CON WIFI)
+        // 1. INICIALIZAR MAPA DE OPENSTREETMAP
+        function inicializarMapa() {
+            mapa = L.map('map', { zoomControl: false, attributionControl: false }).setView([40.4167, -3.7037], 6); 
+
+            // Capa con trucos de almacenamiento para forzar el modo offline en el móvil
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 18,
+                crossOrigin: true,
+                keepBuffer: 10,       // Descarga un colchón grande de mapas alrededor de la pantalla
+                updateWhenIdle: false // Descarga imágenes más rápido mientras te mueves
+            }).addTo(mapa);
+
+            const iconoMoto = L.divIcon({
+                html: '<span style="font-size: 28px;">🏍️</span>',
+                className: 'marcador-moto',
+                iconAnchor: [14, 14]
+            });
+            marcadorMoto = L.marker([40.4167, -3.7037], { icon: iconoMoto }).addTo(mapa);
+        }
+
+        // 2. DESCARGA AUTOMÁTICA DE MAPAS Y CURVAS (WIFI EN CASA)
         async function descargarYProcesarZona() {
             const zona = document.getElementById('zona-input').value.trim();
             if(!zona) return alert("Escribe una zona válida");
 
-            estadoEl.innerText = `Conectando con OpenStreetMap para descargar ${zona}...`;
+            estadoEl.innerText = "Descargando carreteras de OSM...";
             
-            // Consulta Overpass: Busca las carreteras principales (primary, secondary, tertiary) en la zona indicada
+            // Query para traer carreteras principales de la zona
             const query = `[out:json][timeout:25];
                 area["name"="${zona}"]->.searchArea;
-                (
-                  way["highway"~"primary|secondary|tertiary"](area.searchArea);
-                );
+                (way["highway"~"primary|secondary|tertiary"](area.searchArea););
                 out geom;`;
             
             const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
@@ -91,46 +146,53 @@
                 const data = await response.json();
                 
                 if(!data.elements || data.elements.length === 0) {
-                    estadoEl.innerText = "No se encontraron carreteras en esa zona. Revisa el nombre.";
+                    estadoEl.innerText = "No se encontraron datos.";
                     return;
                 }
 
-                estadoEl.innerText = "Procesando geometría de curvas...";
+                // Procesamos las curvas geométricamente
                 analizarCurvasDelMapa(data.elements);
 
+                // Buscamos el primer punto válido para mover el mapa de OpenStreetMap a esa provincia
+                const primerPunto = data.elements.find(e => e.geometry && e.geometry.length > 0).geometry[0];
+                mapa.setView([primerPunto.lat, primerPunto.lon], 15);
+                marcadorMoto.setLatLng([primerPunto.lat, primerPunto.lon]);
+
+                estadoEl.innerText = "Mapa centrado. ¡Curvas listas!";
+                distanciaEl.innerText = `${curvasZonaOffline.length} Curvas`;
+
+                // Escondemos el panel de configuración
+                document.getElementById('config-casa').style.display = 'none';
+
+                // NOTA INFORMATIVA: Avisamos al usuario para que mueva el mapa con el dedo y se guarde offline
+                alert(`¡Éxito! Se han procesado ${curvasZonaOffline.length} curvas en la zona.\n\nCONSEJO: Desplázate un poco por el mapa con los dedos ahora que tienes WiFi para asegurar que las imágenes se quedan grabadas en el móvil.`);
+
             } catch (error) {
-                estadoEl.innerText = "Error al descargar datos de OpenStreetMap.";
+                estadoEl.innerText = "Error de conexión.";
                 console.error(error);
             }
         }
 
-        // 2. ALGORITMO: Analiza las carreteras y calcula los giros bruscos automáticamente
+        // 3. ALGORITMO AUTOMÁTICO DE CURVAS
         function analizarCurvasDelMapa(carreteras) {
             curvasZonaOffline = [];
-
             carreteras.forEach(carretera => {
                 if (!carretera.geometry || carretera.geometry.length < 3) return;
-                
                 const puntos = carretera.geometry;
 
-                // Analizamos los puntos de la carretera de 3 en 3 para medir el ángulo de giro
                 for (let i = 1; i < puntos.length - 1; i++) {
-                    const pA = puntos[i-1];
-                    const pB = puntos[i]; // Vértice de la curva
-                    const pC = puntos[i+1];
+                    const pA = puntos[i-1]; const pB = puntos[i]; const pC = puntos[i+1];
 
-                    // Trigonometría para saber el ángulo del giro en el mapa
                     const rumbo1 = Math.atan2(pB.lat - pA.lat, pB.lon - pA.lon) * 180 / Math.PI;
                     const rumbo2 = Math.atan2(pC.lat - pB.lat, pC.lon - pB.lon) * 180 / Math.PI;
-                    
                     let anguloGiro = rumbo2 - rumbo1;
+                    
                     if (anguloGiro > 180) anguloGiro -= 360;
                     if (anguloGiro < -180) anguloGiro += 360;
 
                     const anguloAbs = Math.abs(anguloGiro);
                     const direccion = anguloGiro >= 0 ? '➡️' : '⬅️';
 
-                    // Clasificación automática según la brusquedad del giro detectado en OSM
                     if (anguloAbs > 38) {
                         curvasZonaOffline.push({ lat: pB.lat, lon: pB.lon, tipo: 'rojo', dir: direccion });
                     } else if (anguloAbs > 18) {
@@ -140,25 +202,22 @@
                     }
                 }
             });
-
-            distanciaEl.innerText = "¡Completado!";
-            estadoEl.innerText = `Zona guardada en memoria. ${curvasZonaOffline.length} curvas procesadas automáticamente. ¡Ya puedes desconectar el WiFi!`;
-            
-            // Ocultamos el panel de casa porque ya estamos listos para la moto
-            document.getElementById('config-casa').style.display = 'none';
         }
 
-        // 3. DETECCIÓN EN RUTA (100% OFFLINE POR GPS)
+        // 4. SEGUIMIENTO GPS EN RUTA (100% OFFLINE)
         function actualizarPosicion(position) {
-            if (curvasZonaOffline.length === 0) return;
-
             const miLat = position.coords.latitude;
             const miLon = position.coords.longitude;
+
+            // Centrar el mapa y la moto según tu posición GPS real en la carretera
+            marcadorMoto.setLatLng([miLat, miLon]);
+            mapa.panTo([miLat, miLon]);
+
+            if (curvasZonaOffline.length === 0) return;
 
             let curvaCercana = null;
             let distanciaMinima = Infinity;
 
-            // Busca por cercanía pura en la base de datos que descargamos en casa
             curvasZonaOffline.forEach(curva => {
                 const dist = calcularDistancia(miLat, miLon, curva.lat, curva.lon);
                 if (dist < distanciaMinima) {
@@ -167,35 +226,33 @@
                 }
             });
 
-            // Si hay una curva calculada a menos de 200 metros, disparamos la alerta en pantalla
+            // Disparador de aviso en un radio de 200 metros
             if (curvaCercana && distanciaMinima < 200) {
                 flechaEl.innerText = curvaCercana.dir;
                 distanciaEl.innerText = `${Math.round(distanciaMinima)} m`;
                 
+                // Cambiamos el color de la capa translúcida (filtro) sin tapar las calles de abajo
                 if (curvaCercana.tipo === 'rojo') {
-                    body.style.backgroundColor = '#d32f2f'; // Fondo Rojo
-                    estadoEl.innerText = "¡ATENCIÓN! Curva muy peligrosa";
+                    filtroAlerta.style.backgroundColor = "rgba(211, 47, 47, 0.45)"; // Rojo Alerta
+                    estadoEl.innerText = "Giro muy cerrado";
                 } else if (curvaCercana.tipo === 'naranja') {
-                    body.style.backgroundColor = '#ef6c00'; // Fondo Naranja
-                    estadoEl.innerText = "Curva peligrosa";
+                    filtroAlerta.style.backgroundColor = "rgba(239, 108, 0, 0.45)"; // Naranja
+                    estadoEl.innerText = "Curva pronunciada";
                 } else {
-                    body.style.backgroundColor = '#2e7d32'; // Fondo Verde
+                    filtroAlerta.style.backgroundColor = "rgba(46, 125, 50, 0.25)"; // Verde
                     estadoEl.innerText = "Curva suave";
                 }
             } else {
-                // Carretera limpia
-                body.style.backgroundColor = '#2e7d32'; // Todo Verde
+                // Todo recto
+                filtroAlerta.style.backgroundColor = "rgba(46, 125, 50, 0.25)"; // Verde suave
                 flechaEl.innerText = '⬆️';
                 distanciaEl.innerText = "Ruta limpia";
                 estadoEl.innerText = "Carretera despejada";
             }
         }
 
-        function errorGPS() {
-            estadoEl.innerText = "Buscando satélites GPS...";
-        }
+        function errorGPS() { estadoEl.innerText = "Buscando satélites GPS..."; }
 
-        // Fórmula Haversine para medir metros bajo el agua/montaña sin internet
         function calcularDistancia(lat1, lon1, lat2, lon2) {
             const R = 6371e3;
             const phi1 = lat1 * Math.PI / 180; const phi2 = lat2 * Math.PI / 180;
@@ -206,12 +263,14 @@
             return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
         }
 
-        // Activar el chip GPS del teléfono en alta precisión
-        if (navigator.geolocation) {
-            navigator.geolocation.watchPosition(actualizarPosicion, errorGPS, {
-                enableHighAccuracy: true, maximumAge: 0, timeout: 5000
-            });
-        }
+        window.onload = () => {
+            inicializarMapa();
+            if (navigator.geolocation) {
+                navigator.geolocation.watchPosition(actualizarPosicion, errorGPS, {
+                    enableHighAccuracy: true, maximumAge: 0, timeout: 5000
+                });
+            }
+        };
     </script>
 </body>
 </html>
