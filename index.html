@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MotoNav Curvas</title>
+    <title>MotoNav - Selector de Zonas</title>
     
+    <!-- Librería del Mapa -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -17,33 +18,61 @@
             display: flex;
             flex-direction: column;
             background-color: #1a1a1a;
-            transition: background-color 0.4s ease; /* Transición suave de color de fondo */
+            transition: background-color 0.4s ease;
+            overflow: hidden;
         }
 
-        /* 1. EL MAPA (Ocupa el fondo de la pantalla) */
+        /* Contenedor del Mapa */
         #map {
             flex-grow: 1;
             width: 100%;
             z-index: 1;
         }
 
-        /* 2. CAPA SUPERIOR: Alertas de Curva (Flecha Gigante) */
-        #capa-alerta {
+        /* Panel Superior: Selector de Provincia (Flotante) */
+        #panel-superior {
             position: absolute;
-            top: 20px;
+            top: 15px;
             left: 50%;
             transform: translateX(-50%);
             z-index: 10;
-            background-color: rgba(0, 0, 0, 0.75);
+            background: rgba(0, 0, 0, 0.85);
+            padding: 10px 15px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.2);
+            width: 90%;
+            max-width: 360px;
+            text-align: center;
+        }
+        select {
+            width: 100%;
+            padding: 8px;
+            font-size: 15px;
+            border-radius: 6px;
+            background: #222;
+            color: white;
+            border: 1px solid #444;
+            margin-top: 5px;
+        }
+
+        /* Panel Central: Alerta de Curva Gigante */
+        #capa-alerta {
+            position: absolute;
+            top: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            background-color: rgba(0, 0, 0, 0.9);
             border-radius: 20px;
-            padding: 15px 30px;
+            padding: 15px 25px;
             display: flex;
             align-items: center;
             gap: 20px;
             backdrop-filter: blur(5px);
             border: 2px solid white;
-            min-width: 280px;
+            min-width: 290px;
             justify-content: center;
+            box-shadow: 0px 4px 15px rgba(0,0,0,0.5);
         }
         #flecha {
             font-size: 70px;
@@ -65,25 +94,35 @@
             font-weight: bold;
         }
 
-        /* 3. CAPA INFERIOR: Estado del GPS */
+        /* Barra de estado inferior */
         footer {
             position: absolute;
-            bottom: 20px;
+            bottom: 15px;
             left: 50%;
             transform: translateX(-50%);
             z-index: 10;
-            background: rgba(0,0,0,0.8);
-            padding: 10px 20px;
-            border-radius: 10px;
-            font-size: 14px;
+            background: rgba(0,0,0,0.85);
+            padding: 8px 15px;
+            border-radius: 8px;
+            font-size: 13px;
             color: #ccc;
-            text-align: center;
-            pointer-events: none;
+            white-space: nowrap;
         }
     </style>
 </head>
 <body id="pantalla-principal">
 
+    <!-- Selector de zona -->
+    <div id="panel-superior">
+        <label style="color: #aaa; font-size: 12px; font-weight: bold;">Cargar zona con WiFi antes de salir:</label>
+        <select id="selector-provincia" onchange="cambiarProvincia()">
+            <option value="ninguna">--- Selecciona Provincia ---</option>
+            <option value="madrid">Madrid (Cruz Verde)</option>
+            <option value="asturias">Asturias (Puerto simulado)</option>
+        </select>
+    </div>
+
+    <!-- Cuadro de mandos / Alerta -->
     <div id="capa-alerta">
         <div id="flecha">⬆️</div>
         <div id="datos-curva">
@@ -92,10 +131,11 @@
         </div>
     </div>
 
+    <!-- Visor de Mapa -->
     <div id="map"></div>
 
     <footer>
-        <div id="estado">Conectando con el GPS satelital...</div>
+        <div id="estado">Selecciona una provincia para empezar</div>
     </footer>
 
     <script>
@@ -107,54 +147,113 @@
 
         let mapa;
         let marcadorMoto;
+        let lineaTrazadaAzul = null;
 
-        // Base de datos de curvas con velocidad máxima recomendada incluida
-        const CURVAS_PRECARGADAS = [
-            { lat: 40.59251, lon: -4.19734, tipo: 'rojo', direccion: '⬅️', velMax: 40 },
-            { lat: 40.59120, lon: -4.19510, tipo: 'naranja', direccion: '➡️', velMax: 60 },
-            { lat: 40.58840, lon: -4.19250, tipo: 'verde', direccion: '⬅️', velMax: 80 }
-        ];
+        // ======================================================================
+        // BASE DE DATOS GEOGRÁFICA (Curvas de alerta + Trazada de carretera)
+        // ======================================================================
+        const DATOS_PROVINCIAS = {
+            madrid: {
+                centro: [40.59251, -4.19734],
+                curvas: [
+                    { lat: 40.59251, lon: -4.19734, tipo: 'rojo', direccion: '⬅️', velMax: 40 },
+                    { lat: 40.59120, lon: -4.19510, tipo: 'naranja', direccion: '➡️', velMax: 60 },
+                    { lat: 40.58840, lon: -4.19250, tipo: 'verde', direccion: '⬅️', velMax: 80 }
+                ],
+                trazada: [
+                    [40.59350, -4.19850], [40.59251, -4.19734], [40.59190, -4.19600],
+                    [40.59120, -4.19510], [40.58980, -4.19380], [40.58840, -4.19250], [40.58700, -4.19100]
+                ]
+            },
+            asturias: {
+                centro: [43.31210, -5.10120],
+                curvas: [
+                    { lat: 43.31210, lon: -5.10120, tipo: 'rojo', direccion: '➡️', velMax: 30 },
+                    { lat: 43.31350, lon: -5.10280, tipo: 'naranja', direccion: '⬅️', velMax: 50 },
+                    { lat: 43.31500, lon: -5.10450, tipo: 'verde', direccion: '➡️', velMax: 70 }
+                ],
+                trazada: [
+                    [43.31100, -5.10000], [43.31210, -5.10120], [43.31290, -5.10200],
+                    [43.31350, -5.10280], [43.31420, -5.10360], [43.31500, -5.10450], [43.31600, -5.10600]
+                ]
+            }
+        };
 
-        // INICIALIZAR EL MAPA NAVEGADOR
+        let curvasActivas = [];
+
+        // INICIALIZACIÓN DEL MAPA GENERAL
         function inicializarMapa() {
-            // Centramos el mapa inicialmente en la zona de pruebas (Cruz Verde)
             mapa = L.map('map', {
-                zoomControl: false, // Quitamos botones de + y - para que no molesten en la moto
+                zoomControl: false,
                 attributionControl: false
-            }).setView([40.59251, -4.19734], 16); 
+            }).setView([40.59251, -4.19734], 15); 
 
-            // Cargamos los mapas de OpenStreetMap. 
-            // NOTA PARA MODO OFFLINE: El navegador del móvil guardará estas imágenes automáticamente en caché cuando las veas la primera vez con internet.
+            // Capa de OpenStreetMap estándar
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 19
+                maxZoom: 18,
+                keepBuffer: 4 // Truco: Fuerza a mantener cargados más mapas alrededor en la memoria
             }).addTo(mapa);
 
-            // Creamos el icono de la moto/vehículo (usamos un emoji o coche para simplificar)
+            // Icono de la moto
             const iconoMoto = L.divIcon({
-                html: '<span style="font-size: 24px;">🏍️</span>',
+                html: '<span style="font-size: 26px;">🏍️</span>',
                 className: 'marcador-moto',
-                iconAnchor: [12, 12]
+                iconAnchor: [13, 13]
             });
 
             marcadorMoto = L.marker([40.59251, -4.19734], { icon: iconoMoto }).addTo(mapa);
         }
 
-        // CONTROL DE POSICIÓN EN TIEMPO REAL (GPS)
+        // FUNCIÓN CLAVE: CAMBIAR DE PROVINCIA Y PINTAR LA NUEVA TRAZADA
+        function cambiarProvincia() {
+            const provincia = document.getElementById('selector-provincia').value;
+            
+            if (provincia === 'ninguna' || !DATOS_PROVINCIAS[provincia]) {
+                curvasActivas = [];
+                if (lineaTrazadaAzul) mapa.removeLayer(lineaTrazadaAzul);
+                estadoEl.innerText = "Selecciona una provincia activa.";
+                return;
+            }
+
+            const datos = DATOS_PROVINCIAS[provincia];
+            curvasActivas = datos.curvas;
+
+            // 1. Mover mapa al inicio de la nueva ruta
+            mapa.setView(datos.centro, 15);
+            marcadorMoto.setLatLng(datos.centro);
+
+            // 2. Si ya había una línea azul pintada de antes, la borramos
+            if (lineaTrazadaAzul) {
+                mapa.removeLayer(lineaTrazadaAzul);
+            }
+
+            // 3. Pintar la nueva trazada azul en el mapa
+            lineaTrazadaAzul = L.polyline(datos.trazada, {
+                color: '#007bef',
+                weight: 7,
+                opacity: 0.85,
+                lineJoin: 'round'
+            }).addTo(mapa);
+
+            estadoEl.innerText = `Zona ${provincia.toUpperCase()} lista. Mueve el mapa para guardar la caché WiFi.`;
+        }
+
+        // LÓGICA DE NAVEGACIÓN GPS EN RUTA
         function actualizarNavegacion(position) {
+            if (curvasActivas.length === 0) return;
+
             const miLat = position.coords.latitude;
             const miLon = position.coords.longitude;
 
-            // 1. Mover el marcador del vehículo y centrar el mapa automáticamente en tu posición
+            // Mover flecha del vehículo
             marcadorMoto.setLatLng([miLat, miLon]);
             mapa.panTo([miLat, miLon]);
 
-            estadoEl.innerText = `GPS Activo. Lat: ${miLat.toFixed(4)} Lon: ${miLon.toFixed(4)}`;
-
-            // 2. Buscar curvas cercanas
             let curvaCercana = null;
             let distanciaMinima = Infinity;
 
-            CURVAS_PRECARGADAS.forEach(curva => {
+            // Escaneo de curvas locales
+            curvasActivas.forEach(curva => {
                 const dist = calcularDistancia(miLat, miLon, curva.lat, curva.lon);
                 if (dist < distanciaMinima) {
                     distanciaMinima = dist;
@@ -162,34 +261,30 @@
                 }
             });
 
-            // 3. Sistema de alertas por colores, velocidad y distancias (Radio de 200 metros)
+            // Disparador de Alertas (Radio de 200m)
             if (curvaCercana && distanciaMinima < 200) {
                 flechaEl.innerText = curvaCercana.direccion;
                 distanciaEl.innerText = `${Math.round(distanciaMinima)} m`;
                 velMaxEl.innerText = `Vel. Máx: ${curvaCercana.velMax} km/h`;
 
-                // Cambiar el color de fondo de la pantalla completa según el peligro
-                if (curvaCercana.tipo === 'rojo') {
-                    pantalla.style.backgroundColor = '#d32f2f'; // Fondo Rojo
-                } else if (curvaCercana.tipo === 'naranja') {
-                    pantalla.style.backgroundColor = '#ef6c00'; // Fondo Naranja
-                } else {
-                    pantalla.style.backgroundColor = '#2e7d32'; // Fondo Verde
-                }
+                if (curvaCercana.tipo === 'rojo') pantalla.style.backgroundColor = '#d32f2f';
+                else if (curvaCercana.tipo === 'naranja') pantalla.style.backgroundColor = '#ef6c00';
+                else pantalla.style.backgroundColor = '#2e7d32';
+                
+                estadoEl.innerText = "¡Atención a la trazada!";
             } else {
-                // Todo despejado
-                pantalla.style.backgroundColor = '#2e7d32'; // Verde por defecto
+                pantalla.style.backgroundColor = '#2e7d32';
                 flechaEl.innerText = '⬆️';
                 distanciaEl.innerText = "Ruta limpia";
                 velMaxEl.innerText = "Vel. Máx: -- km/h";
+                estadoEl.innerText = "Carretera despejada";
             }
         }
 
         function errorGPS(err) {
-            estadoEl.innerText = "Buscando señal de satélites...";
+            estadoEl.innerText = "Buscando satélites GPS...";
         }
 
-        // FÓRMULA MATEMÁTICA PARA MEDIR METROS
         function calcularDistancia(lat1, lon1, lat2, lon2) {
             const R = 6371e3;
             const phi1 = lat1 * Math.PI / 180; const phi2 = lat2 * Math.PI / 180;
@@ -200,18 +295,12 @@
             return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
         }
 
-        // Arrancar la aplicación al cargar la página
         window.onload = () => {
             inicializarMapa();
-            
             if (navigator.geolocation) {
                 navigator.geolocation.watchPosition(actualizarNavegacion, errorGPS, {
-                    enableHighAccuracy: true,
-                    maximumAge: 0,
-                    timeout: 5000
+                    enableHighAccuracy: true, maximumAge: 0, timeout: 5000
                 });
-            } else {
-                estadoEl.innerText = "Tu dispositivo no tiene GPS.";
             }
         };
     </script>
