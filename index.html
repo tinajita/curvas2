@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MotoCurvas OSM Offline Completo</title>
+    <title>MotoCurvas OSM Offline Fijo</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -20,20 +20,18 @@
             overflow: hidden;
         }
 
-        /* Contenedor del Mapa (Ocupa toda la pantalla de fondo) */
         #map {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
             z-index: 1;
         }
 
-        /* CAPA DE COLOR CRUCIAL: Filtro translúcido sobre el mapa para dar la alerta sin taparlo */
         #filtro-alerta {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
             z-index: 2;
-            pointer-events: none; /* Permite que sigas pudiendo tocar el mapa */
-            background-color: rgba(46, 125, 50, 0.25); /* Verde suave por defecto */
+            pointer-events: none;
+            background-color: rgba(46, 125, 50, 0.15); /* Filtro verde muy suave */
             transition: background-color 0.3s ease;
         }
 
@@ -53,7 +51,7 @@
         }
         button { background: #007bef; color: white; font-weight: bold; cursor: pointer; }
 
-        /* Cuadro de Mandos Superior (En marcha) */
+        /* Cuadro flotante con Flecha y Distancia */
         #capa-alerta {
             position: absolute;
             top: 20px; left: 50%; transform: translateX(-50%);
@@ -72,14 +70,12 @@
         #distancia { font-size: 26px; font-weight: bold; color: white; }
         #estado { font-size: 13px; color: #ccc; }
 
-        /* Icono de la moto en el mapa */
         .marcador-moto { text-shadow: 0px 2px 5px rgba(0,0,0,0.5); }
     </style>
 </head>
 <body>
 
     <div id="map"></div>
-
     <div id="filtro-alerta"></div>
 
     <div id="config-casa">
@@ -106,16 +102,14 @@
         let marcadorMoto;
         let curvasZonaOffline = [];
 
-        // 1. INICIALIZAR MAPA DE OPENSTREETMAP
         function inicializarMapa() {
+            // Mapa inicial por defecto (Se verá España entera si no hay GPS)
             mapa = L.map('map', { zoomControl: false, attributionControl: false }).setView([40.4167, -3.7037], 6); 
 
-            // Capa con trucos de almacenamiento para forzar el modo offline en el móvil
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 maxZoom: 18,
                 crossOrigin: true,
-                keepBuffer: 10,       // Descarga un colchón grande de mapas alrededor de la pantalla
-                updateWhenIdle: false // Descarga imágenes más rápido mientras te mueves
+                keepBuffer: 10
             }).addTo(mapa);
 
             const iconoMoto = L.divIcon({
@@ -123,17 +117,16 @@
                 className: 'marcador-moto',
                 iconAnchor: [14, 14]
             });
+            // Añadimos el marcador en el centro provisional
             marcadorMoto = L.marker([40.4167, -3.7037], { icon: iconoMoto }).addTo(mapa);
         }
 
-        // 2. DESCARGA AUTOMÁTICA DE MAPAS Y CURVAS (WIFI EN CASA)
         async function descargarYProcesarZona() {
             const zona = document.getElementById('zona-input').value.trim();
             if(!zona) return alert("Escribe una zona válida");
 
-            estadoEl.innerText = "Descargando carreteras de OSM...";
+            estadoEl.innerText = "Buscando carreteras en OpenStreetMap...";
             
-            // Query para traer carreteras principales de la zona
             const query = `[out:json][timeout:25];
                 area["name"="${zona}"]->.searchArea;
                 (way["highway"~"primary|secondary|tertiary"](area.searchArea););
@@ -146,34 +139,32 @@
                 const data = await response.json();
                 
                 if(!data.elements || data.elements.length === 0) {
-                    estadoEl.innerText = "No se encontraron datos.";
+                    estadoEl.innerText = "No se encontraron carreteras. Revisa el nombre.";
                     return;
                 }
 
-                // Procesamos las curvas geométricamente
                 analizarCurvasDelMapa(data.elements);
 
-                // Buscamos el primer punto válido para mover el mapa de OpenStreetMap a esa provincia
+                // FORZAR MOVIMIENTO: Buscamos el primer punto y movemos el mapa AHÍ directamente
+                // Esto hace que veas el mapa inmediatamente aunque estés bajo techo y sin cobertura GPS
                 const primerPunto = data.elements.find(e => e.geometry && e.geometry.length > 0).geometry[0];
-                mapa.setView([primerPunto.lat, primerPunto.lon], 15);
+                
+                mapa.setView([primerPunto.lat, primerPunto.lon], 14); // Hace zoom en la zona descargada
                 marcadorMoto.setLatLng([primerPunto.lat, primerPunto.lon]);
 
-                estadoEl.innerText = "Mapa centrado. ¡Curvas listas!";
+                estadoEl.innerText = "Mapa e información listos.";
                 distanciaEl.innerText = `${curvasZonaOffline.length} Curvas`;
 
-                // Escondemos el panel de configuración
                 document.getElementById('config-casa').style.display = 'none';
 
-                // NOTA INFORMATIVA: Avisamos al usuario para que mueva el mapa con el dedo y se guarde offline
-                alert(`¡Éxito! Se han procesado ${curvasZonaOffline.length} curvas en la zona.\n\nCONSEJO: Desplázate un poco por el mapa con los dedos ahora que tienes WiFi para asegurar que las imágenes se quedan grabadas en el móvil.`);
+                alert(`¡Procesadas ${curvasZonaOffline.length} curvas en ${zona}!\n\nYa puedes ver las carreteras en pantalla. Arrastra el mapa con el dedo por las rutas que vayas a hacer para memorizar los mapas antes de salir.`);
 
             } catch (error) {
-                estadoEl.innerText = "Error de conexión.";
+                estadoEl.innerText = "Error al conectar con los servidores de mapas.";
                 console.error(error);
             }
         }
 
-        // 3. ALGORITMO AUTOMÁTICO DE CURVAS
         function analizarCurvasDelMapa(carreteras) {
             curvasZonaOffline = [];
             carreteras.forEach(carretera => {
@@ -204,14 +195,12 @@
             });
         }
 
-        // 4. SEGUIMIENTO GPS EN RUTA (100% OFFLINE)
         function actualizarPosicion(position) {
             const miLat = position.coords.latitude;
             const miLon = position.coords.longitude;
 
-            // Centrar el mapa y la moto según tu posición GPS real en la carretera
             marcadorMoto.setLatLng([miLat, miLon]);
-            mapa.panTo([miLat, miLon]);
+            mapa.panTo([miLat, miLon]); // Solo centra el mapa automáticamente si el GPS responde de verdad
 
             if (curvasZonaOffline.length === 0) return;
 
@@ -226,32 +215,32 @@
                 }
             });
 
-            // Disparador de aviso en un radio de 200 metros
             if (curvaCercana && distanciaMinima < 200) {
                 flechaEl.innerText = curvaCercana.dir;
                 distanciaEl.innerText = `${Math.round(distanciaMinima)} m`;
                 
-                // Cambiamos el color de la capa translúcida (filtro) sin tapar las calles de abajo
                 if (curvaCercana.tipo === 'rojo') {
-                    filtroAlerta.style.backgroundColor = "rgba(211, 47, 47, 0.45)"; // Rojo Alerta
+                    filtroAlerta.style.backgroundColor = "rgba(211, 47, 47, 0.4)";
                     estadoEl.innerText = "Giro muy cerrado";
                 } else if (curvaCercana.tipo === 'naranja') {
-                    filtroAlerta.style.backgroundColor = "rgba(239, 108, 0, 0.45)"; // Naranja
+                    filtroAlerta.style.backgroundColor = "rgba(239, 108, 0, 0.4)";
                     estadoEl.innerText = "Curva pronunciada";
                 } else {
-                    filtroAlerta.style.backgroundColor = "rgba(46, 125, 50, 0.25)"; // Verde
+                    filtroAlerta.style.backgroundColor = "rgba(46, 125, 50, 0.15)";
                     estadoEl.innerText = "Curva suave";
                 }
             } else {
-                // Todo recto
-                filtroAlerta.style.backgroundColor = "rgba(46, 125, 50, 0.25)"; // Verde suave
+                filtroAlerta.style.backgroundColor = "rgba(46, 125, 50, 0.15)";
                 flechaEl.innerText = '⬆️';
                 distanciaEl.innerText = "Ruta limpia";
                 estadoEl.innerText = "Carretera despejada";
             }
         }
 
-        function errorGPS() { estadoEl.innerText = "Buscando satélites GPS..."; }
+        // Si falla el GPS (como bajo techo), simplemente avisamos discretamente abajo sin romper el mapa
+        function errorGPS() { 
+            estadoEl.innerText = "Bajo techo / Buscando satélites GPS..."; 
+        }
 
         function calcularDistancia(lat1, lon1, lat2, lon2) {
             const R = 6371e3;
