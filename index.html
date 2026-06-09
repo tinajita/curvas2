@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MotoCurvas Ultra Fluido</title>
+    <title>MotoRadar Vectorial Pro</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -14,36 +14,51 @@
             margin: 0; padding: 0;
             font-family: 'Segoe UI', Arial, sans-serif;
             height: 100vh; display: flex; flex-direction: column;
-            background-color: #1a1a1a; overflow: hidden;
+            background-color: #111111; overflow: hidden; /* Fondo negro noche */
         }
 
-        #map { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        #map { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            z-index: 1; background-color: #111111 !important; /* Eliminamos fondo blanco de Leaflet */
+        }
 
+        /* Capa de color translúcido para alertas en visión periférica */
         #filtro-alerta {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2;
-            pointer-events: none; background-color: rgba(46, 125, 50, 0.15);
-            transition: background-color 0.2s ease; /* Transición de color ultra rápida */
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            z-index: 2; pointer-events: none;
+            background-color: rgba(0, 0, 0, 0);
+            transition: background-color 0.2s ease;
         }
 
-        #config-casa {
-            position: absolute; top: 15px; left: 50%; transform: translateX(-50%); z-index: 10;
-            background: rgba(0,0,0,0.9); padding: 15px; border-radius: 12px;
-            width: 90%; max-width: 380px; text-align: center; border: 2px solid #007bef;
-        }
-        input, button { width: 100%; padding: 10px; margin-top: 8px; border-radius: 6px; border: none; font-size: 16px; }
-        button { background: #007bef; color: white; font-weight: bold; cursor: pointer; }
-
+        /* Cuadro de información superior (Z-INDEX alto, siempre visible) */
         #capa-alerta {
-            position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9;
-            background-color: rgba(0, 0, 0, 0.85); border-radius: 20px; padding: 12px 25px;
-            display: flex; align-items: center; gap: 20px; backdrop-filter: blur(5px);
-            border: 2px solid white; min-width: 290px; justify-content: center;
-            box-shadow: 0px 4px 15px rgba(0,0,0,0.5);
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%); 
+            z-index: 10; background-color: rgba(15, 15, 15, 0.92); border-radius: 20px; padding: 12px 25px;
+            display: flex; align-items: center; gap: 20px; backdrop-filter: blur(8px);
+            border: 2px solid #333; min-width: 300px; justify-content: center;
+            box-shadow: 0px 6px 20px rgba(0,0,0,0.8);
         }
         #flecha { font-size: 65px; font-weight: bold; line-height: 1; }
         #datos-curva { display: flex; flex-direction: column; }
         #distancia { font-size: 26px; font-weight: bold; color: white; }
-        #estado { font-size: 13px; color: #ccc; }
+        #estado { font-size: 13px; color: #888; margin-top: 2px; font-weight: bold; }
+
+        /* Panel de descarga en casa (WiFi) */
+        #config-casa {
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); 
+            z-index: 10; background: #151515; padding: 18px; border-radius: 14px;
+            width: 90%; max-width: 380px; text-align: center; border: 2px solid #007bef;
+            box-shadow: 0px 10px 25px rgba(0,0,0,0.9);
+        }
+        input, button { width: 100%; padding: 12px; margin-top: 10px; border-radius: 8px; border: none; font-size: 16px; }
+        input { background: #222; color: white; border: 1px solid #444; text-align: center; }
+        button { background: #007bef; color: white; font-weight: bold; cursor: pointer; }
+
+        /* Estilo para las etiquetas de los pueblos */
+        .etiqueta-pueblo {
+            background: transparent !important; border: none !important; box-shadow: none !important;
+            color: #8aa4af !important; font-weight: bold; font-size: 11px; text-shadow: 1px 1px 2px #000;
+        }
     </style>
 </head>
 <body>
@@ -51,18 +66,18 @@
     <div id="map"></div>
     <div id="filtro-alerta"></div>
 
-    <div id="config-casa">
-        <label style="color: white; font-weight: bold;">🏠 Precarga WiFi en Casa:</label>
-        <input type="text" id="zona-input" value="Granada" placeholder="Ej: Granada, Madrid, Asturias...">
-        <button onclick="descargarYProcesarZona()">📥 Descargar Mapa y Curvas</button>
-    </div>
-
     <div id="capa-alerta">
         <div id="flecha">⬆️</div>
         <div id="datos-curva">
-            <div id="distancia">App Lista</div>
+            <div id="distancia">MotoRadar Listo</div>
             <div id="estado">Introduce zona con WiFi</div>
         </div>
+    </div>
+
+    <div id="config-casa">
+        <label style="color: white; font-weight: bold; font-size: 14px;">🏠 Descarga de Provincia (WiFi):</label>
+        <input type="text" id="zona-input" value="Málaga" placeholder="Ej: Málaga, Granada, Madrid...">
+        <button onclick="descargarYProcesarTodo()">📥 Cargar Carreteras y Pueblos</button>
     </div>
 
     <script>
@@ -73,99 +88,54 @@
 
         let mapa;
         let marcadorMoto;
+        let capasCarreteras = []; // Array para guardar las líneas individuales de las carreteras
+        let grupoPueblos = null;
         let curvasZonaOffline = [];
 
-        // Variables para el motor de movimiento fluido (Interpolación)
+        // Motor 60 FPS
         let posActual = { lat: 40.4167, lon: -3.7037 };
         let posObjetivo = { lat: 40.4167, lon: -3.7037 };
-        const FACTOR_SUAVIZADO = 0.12; // Cuanto más bajo, más suave es el deslizamiento del mapa
+        const FACTOR_SUAVIZADO = 0.12; 
 
         function inicializarMapa() {
+            // Clave: preferCanvas pinta líneas directamente en pantalla, eliminando las imágenes pesadas
             mapa = L.map('map', { 
-                zoomControl: false, 
-                attributionControl: false,
-                zoomAnimation: true,
-                markerZoomAnimation: true
+                zoomControl: false, attributionControl: false, preferCanvas: true 
             }).setView([posActual.lat, posActual.lon], 6); 
 
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 18, crossOrigin: true, keepBuffer: 12
-            }).addTo(mapa);
-
             const iconoMoto = L.divIcon({
-                html: '<span style="font-size: 28px;">🏍️</span>',
-                className: 'marcador-moto',
-                iconAnchor: [14, 14]
+                html: '<span style="font-size: 32px;">🏍️</span>',
+                iconAnchor: [16, 16]
             });
             marcadorMoto = L.marker([posActual.lat, posActual.lon], { icon: iconoMoto }).addTo(mapa);
+            grupoPueblos = L.layerGroup().addTo(mapa);
 
-            // Arrancamos el bucle de renderizado de alta fluidez (60 veces por segundo)
             bucleAnimacionFluida();
         }
 
-        // MOTOR GRÁFICO (60 FPS): Elimina los saltos del GPS de raíz
         function bucleAnimacionFluida() {
-            // Nos acercamos a la posición real del GPS poco a poco en cada fotograma
             posActual.lat += (posObjetivo.lat - posActual.lat) * FACTOR_SUAVIZADO;
             posActual.lon += (posObjetivo.lon - posActual.lon) * FACTOR_SUAVIZADO;
-
-            // Movemos el marcador y el mapa con precisión milimétrica
             marcadorMoto.setLatLng([posActual.lat, posActual.lon]);
             mapa.panTo([posActual.lat, posActual.lon], { animate: false }); 
-
-            // Solicita al navegador ejecutar esto de nuevo en el siguiente milisegundo disponible de la pantalla
             requestAnimationFrame(bucleAnimacionFluida);
         }
 
-        function recibirCoordenadasGPS(position) {
-            // Guardamos el objetivo real. El motor gráfico se encargará de "deslizarse" hacia él sin dar saltos.
-            posObjetivo.lat = position.coords.latitude;
-            posObjetivo.lon = position.coords.longitude;
-
-            if (curvasZonaOffline.length === 0) return;
-
-            let curvaCercana = null;
-            let distanciaMinima = Infinity;
-
-            curvasZonaOffline.forEach(curva => {
-                const dist = calcularDistancia(posObjetivo.lat, posObjetivo.lon, curva.lat, curva.lon);
-                if (dist < distanciaMinima) {
-                    distanciaMinima = dist;
-                    curvaCercana = curva;
-                }
-            });
-
-            if (curvaCercana && distanciaMinima < 200) {
-                flechaEl.innerText = curvaCercana.dir;
-                distanciaEl.innerText = `${Math.round(distanciaMinima)} m`;
-                
-                if (curvaCercana.tipo === 'rojo') {
-                    filtroAlerta.style.backgroundColor = "rgba(211, 47, 47, 0.4)";
-                    estadoEl.innerText = "Giro muy cerrado";
-                } else if (curvaCercana.tipo === 'naranja') {
-                    filtroAlerta.style.backgroundColor = "rgba(239, 108, 0, 0.4)";
-                    estadoEl.innerText = "Curva pronunciada";
-                } else {
-                    filtroAlerta.style.backgroundColor = "rgba(46, 125, 50, 0.15)";
-                    estadoEl.innerText = "Curva suave";
-                }
-            } else {
-                filtroAlerta.style.backgroundColor = "rgba(46, 125, 50, 0.15)";
-                flechaEl.innerText = '⬆️';
-                distanciaEl.innerText = "Ruta limpia";
-                estadoEl.innerText = "Carretera despejada";
-            }
-        }
-
-        async function descargarYProcesarZona() {
+        // DESCARGA AUTOMÁTICA DE DATOS VECTORIALES (CARRETERAS + PUEBLOS)
+        async function descargarYProcesarTodo() {
             const zona = document.getElementById('zona-input').value.trim();
             if(!zona) return alert("Escribe una zona válida");
 
-            estadoEl.innerText = "Buscando carreteras en OpenStreetMap...";
+            distanciaEl.innerText = "Descargando...";
+            estadoEl.innerText = "Sincronizando con OpenStreetMap...";
             
-            const query = `[out:json][timeout:25];
+            // Query combinada: Se baja carreteras (ways) y pueblos/villas (nodes) de la zona elegida
+            const query = `[out:json][timeout:50];
                 area["name"="${zona}"]->.searchArea;
-                (way["highway"~"primary|secondary|tertiary"](area.searchArea););
+                (
+                  way["highway"~"primary|secondary|tertiary"](area.searchArea);
+                  node["place"~"town|village"](area.searchArea);
+                );
                 out geom;`;
             
             const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
@@ -175,57 +145,142 @@
                 const data = await response.json();
                 
                 if(!data.elements || data.elements.length === 0) {
-                    estadoEl.innerText = "No se encontraron carreteras.";
+                    distanciaEl.innerText = "Error";
+                    estadoEl.innerText = "No se encontraron datos.";
                     return;
                 }
 
-                analizarCurvasDelMapa(data.elements);
+                // Limpiar datos previos
+                capasCarreteras.forEach(c => mapa.removeLayer(c.objetoGrafico));
+                capasCarreteras = [];
+                grupoPueblos.clearLayers();
+                curvasZonaOffline = [];
 
-                const primerPunto = data.elements.find(e => e.geometry && e.geometry.length > 0).geometry[0];
-                
-                // Actualizamos posición actual y objetivo de golpe para centrar el mapa al inicio
-                posActual = { lat: primerPunto.lat, lon: primerPunto.lon };
-                posObjetivo = { lat: primerPunto.lat, lon: primerPunto.lon };
-                mapa.setView([primerPunto.lat, primerPunto.lon], 15);
+                // Separar y procesar carreteras y pueblos
+                let primerPuntoValido = null;
 
-                estadoEl.innerText = "Mapa e información listos.";
-                distanciaEl.innerText = `${curvasZonaOffline.length} Curvas`;
+                data.elements.forEach(el => {
+                    // Si es una carretera (way)
+                    if (el.type === "way" && el.geometry) {
+                        let coordenadas = el.geometry.map(p => [p.lat, p.lon]);
+                        if(!primerPuntoValido) primerPuntoValido = coordenadas[0];
+
+                        // Dibujamos la carretera ATENUADA por defecto (Gris muy oscuro/fino)
+                        let poly = L.polyline(coordenadas, {
+                            color: '#2a2a2a', weight: 3, opacity: 0.85
+                        }).addTo(mapa);
+
+                        // Guardamos la carretera en nuestro registro interno para poder encenderla luego en azul
+                        capasCarreteras.push({
+                            puntos: coordenadas,
+                            objetoGrafico: poly
+                        });
+
+                        // Calcular curvas en esta carretera
+                        calcularCurvasCarretera(el.geometry);
+                    }
+                    // Si es un pueblo (node)
+                    else if (el.type === "node" && el.tags && el.tags.name) {
+                        L.marker([el.lat, el.lon], {
+                            icon: L.divIcon({
+                                className: 'etiqueta-pueblo',
+                                html: `📍 ${el.tags.name}`,
+                                iconAnchor: [0, 0]
+                            })
+                        }).addTo(grupoPueblos);
+                    }
+                });
+
+                // Posicionar mapa
+                if(primerPuntoValido) {
+                    posActual = { lat: primerPuntoValido[0], lon: primerPuntoValido[1] };
+                    posObjetivo = { lat: primerPuntoValido[0], lon: primerPuntoValido[1] };
+                    mapa.setView([primerPuntoValido[0], primerPuntoValido[1]], 14);
+                }
+
+                distanciaEl.innerText = "¡Listo!";
+                estadoEl.innerText = `${curvasZonaOffline.length} curvas cargadas en ${zona}.`;
                 document.getElementById('config-casa').style.display = 'none';
 
             } catch (error) {
-                estadoEl.innerText = "Error al conectar.";
+                distanciaEl.innerText = "Error";
+                estadoEl.innerText = "Error de red WiFi.";
                 console.error(error);
             }
         }
 
-        function analizarCurvasDelMapa(carreteras) {
-            curvasZonaOffline = [];
-            carreteras.forEach(carretera => {
-                if (!carretera.geometry || carretera.geometry.length < 3) return;
-                const puntos = carretera.geometry;
+        // ALGORITMO DE CURVAS
+        function calcularCurvasCarretera(puntos) {
+            if(puntos.length < 3) return;
+            for (let i = 1; i < puntos.length - 1; i++) {
+                const pA = puntos[i-1]; const pB = puntos[i]; const pC = puntos[i+1];
+                const rumbo1 = Math.atan2(pB.lat - pA.lat, pB.lon - pA.lon) * 180 / Math.PI;
+                const rumbo2 = Math.atan2(pC.lat - pB.lat, pC.lon - pB.lon) * 180 / Math.PI;
+                let giro = rumbo2 - rumbo1;
+                if (giro > 180) giro -= 360; if (giro < -180) giro += 360;
+                const anguloAbs = Math.abs(giro);
+                const dir = giro >= 0 ? '➡️' : '⬅️';
 
-                for (let i = 1; i < puntos.length - 1; i++) {
-                    const pA = puntos[i-1]; const pB = puntos[i]; const pC = puntos[i+1];
+                if (anguloAbs > 38) curvasZonaOffline.push({ lat: pB.lat, lon: pB.lon, tipo: 'rojo', dir: dir });
+                else if (anguloAbs > 18) curvasZonaOffline.push({ lat: pB.lat, lon: pB.lon, tipo: 'naranja', dir: dir });
+                else if (anguloAbs > 6) curvasZonaOffline.push({ lat: pB.lat, lon: pB.lon, tipo: 'verde', dir: dir });
+            }
+        }
 
-                    const rumbo1 = Math.atan2(pB.lat - pA.lat, pB.lon - pA.lon) * 180 / Math.PI;
-                    const rumbo2 = Math.atan2(pC.lat - pB.lat, pC.lon - pB.lon) * 180 / Math.PI;
-                    let anguloGiro = rumbo2 - rumbo1;
-                    
-                    if (anguloGiro > 180) anguloGiro -= 360;
-                    if (anguloGiro < -180) anguloGiro += 360;
+        // GPS EN CARRETERA (100% OFFLINE)
+        function actualizarPosicion(position) {
+            posObjetivo.lat = position.coords.latitude;
+            posObjetivo.lon = position.coords.longitude;
 
-                    const anguloAbs = Math.abs(anguloGiro);
-                    const direccion = anguloGiro >= 0 ? '➡️' : '⬅️';
-
-                    if (anguloAbs > 38) {
-                        curvasZonaOffline.push({ lat: pB.lat, lon: pB.lon, tipo: 'rojo', dir: direccion });
-                    } else if (anguloAbs > 18) {
-                        curvasZonaOffline.push({ lat: pB.lat, lon: pB.lon, tipo: 'naranja', dir: direccion });
-                    } else if (anguloAbs > 6) {
-                        curvasZonaOffline.push({ lat: pB.lat, lon: pB.lon, tipo: 'verde', dir: direccion });
+            // 1. RESALTADO EN AZUL DE LA CARRETERA ACTUAL
+            // Busca qué carretera de la lista está pisando la moto (a menos de 25 metros)
+            capasCarreteras.forEach(carretera => {
+                let motoCercaDeEstaCarretera = false;
+                
+                for(let p of carretera.puntos) {
+                    if(calcularDistancia(posObjetivo.lat, posObjetivo.lon, p[0], p[1]) < 25) {
+                        motoCercaDeEstaCarretera = true;
+                        break;
                     }
                 }
+
+                if (motoCercaDeEstaCarretera) {
+                    // Si estás encima, se enciende en AZUL ELÉCTRICO y se hace más gruesa
+                    carretera.objetoGrafico.setStyle({ color: '#00d2ff', weight: 6, opacity: 1 });
+                } else {
+                    // Si no, vuelve a su estado gris atenuado de fondo
+                    carretera.objetoGrafico.setStyle({ color: '#2a2a2a', weight: 3, opacity: 0.85 });
+                }
             });
+
+            // 2. DETECCIÓN DE CURVAS CERCANAS
+            if (curvasZonaOffline.length === 0) return;
+            let curvaCercana = null; let distanciaMinima = Infinity;
+
+            curvasZonaOffline.forEach(curva => {
+                const dist = calcularDistancia(posObjetivo.lat, posObjetivo.lon, curva.lat, curva.lon);
+                if (dist < distanciaMinima) { distanciaMinima = dist; curvaCercana = curva; }
+            });
+
+            if (curvaCercana && distanciaMinima < 200) {
+                flechaEl.innerText = curvaCercana.dir;
+                distanciaEl.innerText = `${Math.round(distanciaMinima)} m`;
+                
+                if (curvaCercana.tipo === 'rojo') {
+                    filtroAlerta.style.backgroundColor = "rgba(211, 47, 47, 0.35)";
+                    estadoEl.innerText = "Giro cerrado";
+                } else if (curvaCercana.tipo === 'naranja') {
+                    filtroAlerta.style.backgroundColor = "rgba(239, 108, 0, 0.35)";
+                    estadoEl.innerText = "Curva pronunciada";
+                } else {
+                    filtroAlerta.style.backgroundColor = "rgba(46, 125, 50, 0.12)";
+                    estadoEl.innerText = "Curva suave";
+                }
+            } else {
+                filtroAlerta.style.backgroundColor = "rgba(0, 0, 0, 0)"; // Fondo limpio
+                flechaEl.innerText = '⬆️'; distanciaEl.innerText = "Ruta limpia";
+                estadoEl.innerText = "Carretera despejada";
+            }
         }
 
         function errorGPS() { estadoEl.innerText = "Buscando satélites GPS..."; }
@@ -233,21 +288,16 @@
         function calcularDistancia(lat1, lon1, lat2, lon2) {
             const R = 6371e3;
             const phi1 = lat1 * Math.PI / 180; const phi2 = lat2 * Math.PI / 180;
-            const deltaPhi = (lat2 - lat1) * Math.PI / 180;
-            const deltaLambda = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(deltaPhi/2) * Math.sin(deltaPhi/2) +
-                      Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda/2) * Math.sin(deltaLambda/2);
+            const deltaPhi = (lat2 - lat1) * Math.PI / 180; const deltaLambda = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(deltaPhi/2) * Math.sin(deltaPhi/2) + Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda/2) * Math.sin(deltaLambda/2);
             return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
         }
 
         window.onload = () => {
             inicializarMapa();
             if (navigator.geolocation) {
-                // Forzamos la máxima frecuencia de refresco del chip de localización
-                navigator.geolocation.watchPosition(recibirCoordenadasGPS, errorGPS, {
-                    enableHighAccuracy: true, 
-                    maximumAge: 0, 
-                    timeout: 2000
+                navigator.geolocation.watchPosition(actualizarPosicion, errorGPS, {
+                    enableHighAccuracy: true, maximumAge: 0, timeout: 2000
                 });
             }
         };
