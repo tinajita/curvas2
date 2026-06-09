@@ -3,114 +3,158 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MotoCurvas - Regiones</title>
+    <title>MotoNav Curvas</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
     <style>
         * { box-sizing: border-box; }
         body {
             margin: 0; padding: 0;
-            font-family: Arial, sans-serif;
-            display: flex; flex-direction: column;
-            justify-content: space-between; align-items: center;
-            height: 100vh; color: white;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
             background-color: #1a1a1a;
-            transition: background-color 0.4s ease;
-            padding: 20px;
-        }
-        header { width: 100%; text-align: center; }
-        
-        /* Selector de Regiones */
-        #selector-zona {
-            background: rgba(255,255,255,0.1);
-            padding: 15px; border-radius: 10px;
-            text-align: center; width: 100%; max-width: 400px;
-        }
-        select {
-            width: 100%; padding: 10px; font-size: 16px;
-            border-radius: 5px; margin-top: 10px;
+            transition: background-color 0.4s ease; /* Transición suave de color de fondo */
         }
 
-        /* Pantalla Principal */
-        main { display: flex; justify-content: center; align-items: center; flex-grow: 1; }
-        #flecha { font-size: 180px; font-weight: bold; text-shadow: 0px 5px 10px rgba(0,0,0,0.3); }
+        /* 1. EL MAPA (Ocupa el fondo de la pantalla) */
+        #map {
+            flex-grow: 1;
+            width: 100%;
+            z-index: 1;
+        }
 
+        /* 2. CAPA SUPERIOR: Alertas de Curva (Flecha Gigante) */
+        #capa-alerta {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            background-color: rgba(0, 0, 0, 0.75);
+            border-radius: 20px;
+            padding: 15px 30px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            backdrop-filter: blur(5px);
+            border: 2px solid white;
+            min-width: 280px;
+            justify-content: center;
+        }
+        #flecha {
+            font-size: 70px;
+            font-weight: bold;
+            line-height: 1;
+        }
+        #datos-curva {
+            display: flex;
+            flex-direction: column;
+        }
+        #distancia {
+            font-size: 28px;
+            font-weight: bold;
+            color: white;
+        }
+        #vel-max {
+            font-size: 16px;
+            color: #ffeb3b;
+            font-weight: bold;
+        }
+
+        /* 3. CAPA INFERIOR: Estado del GPS */
         footer {
-            width: 100%; text-align: center;
-            background-color: rgba(0, 0, 0, 0.5); padding: 15px;
-            border-radius: 15px; backdrop-filter: blur(5px);
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            background: rgba(0,0,0,0.8);
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-size: 14px;
+            color: #ccc;
+            text-align: center;
+            pointer-events: none;
         }
-        #distancia { font-size: 32px; font-weight: bold; }
-        #estado { font-size: 16px; opacity: 0.8; margin-top: 5px; }
     </style>
 </head>
-<body>
+<body id="pantalla-principal">
 
-    <header>
-        <div id="selector-zona">
-            <label for="provincias">📍 Selecciona tu zona de ruta:</label>
-            <select id="provincias" onchange="cambiarZona()">
-                <option value="ninguna">--- Elige Provincia ---</option>
-                <option value="madrid">Madrid (Cruz Verde / Atazar)</option>
-                <option value="asturias">Asturias (Puertos de Montaña)</option>
-            </select>
+    <div id="capa-alerta">
+        <div id="flecha">⬆️</div>
+        <div id="datos-curva">
+            <div id="distancia">Ruta limpia</div>
+            <div id="vel-max">Vel. Máx: -- km/h</div>
         </div>
-    </header>
+    </div>
 
-    <main>
-        <div id="flecha">--</div>
-    </main>
+    <div id="map"></div>
 
     <footer>
-        <div id="distancia">Selecciona Zona</div>
-        <div id="estado">Esperando que elijas provincia...</div>
+        <div id="estado">Conectando con el GPS satelital...</div>
     </footer>
 
     <script>
-        const body = document.body;
+        const pantalla = document.getElementById('pantalla-principal');
         const flechaEl = document.getElementById('flecha');
         const distanciaEl = document.getElementById('distancia');
+        const velMaxEl = document.getElementById('vel-max');
         const estadoEl = document.getElementById('estado');
-        
-        // BASE DE DATOS DIVIDIDA POR PROVINCIAS
-        const MAPAS_PROVINCIALES = {
-            madrid: [
-                { lat: 40.59251, lon: -4.19734, tipo: 'rojo', direccion: '⬅️' },
-                { lat: 40.59120, lon: -4.19510, tipo: 'naranja', direccion: '➡️' }
-            ],
-            asturias: [
-                { lat: 43.31210, lon: -5.10120, tipo: 'rojo', direccion: '➡️' }, // Ejemplo Fito / Lagos
-                { lat: 43.31500, lon: -5.10450, tipo: 'verde', direccion: '⬅️' }
-            ]
-        };
 
-        let curvasActivas = [];
+        let mapa;
+        let marcadorMoto;
 
-        // Cambia la base de datos activa según lo que elija el motero
-        function cambiarZona() {
-            const zonaSeleccionada = document.getElementById('provincias').value;
-            
-            if (MAPAS_PROVINCIALES[zonaSeleccionada]) {
-                curvasActivas = MAPAS_PROVINCIALES[zonaSeleccionada];
-                distanciaEl.innerText = "Zona Cargada";
-                estadoEl.innerText = `Listo para rodar offline con ${curvasActivas.length} curvas.`;
-            } else {
-                curvasActivas = [];
-                distanciaEl.innerText = "Sin Datos";
-                estadoEl.innerText = "Selecciona una provincia válida.";
-            }
+        // Base de datos de curvas con velocidad máxima recomendada incluida
+        const CURVAS_PRECARGADAS = [
+            { lat: 40.59251, lon: -4.19734, tipo: 'rojo', direccion: '⬅️', velMax: 40 },
+            { lat: 40.59120, lon: -4.19510, tipo: 'naranja', direccion: '➡️', velMax: 60 },
+            { lat: 40.58840, lon: -4.19250, tipo: 'verde', direccion: '⬅️', velMax: 80 }
+        ];
+
+        // INICIALIZAR EL MAPA NAVEGADOR
+        function inicializarMapa() {
+            // Centramos el mapa inicialmente en la zona de pruebas (Cruz Verde)
+            mapa = L.map('map', {
+                zoomControl: false, // Quitamos botones de + y - para que no molesten en la moto
+                attributionControl: false
+            }).setView([40.59251, -4.19734], 16); 
+
+            // Cargamos los mapas de OpenStreetMap. 
+            // NOTA PARA MODO OFFLINE: El navegador del móvil guardará estas imágenes automáticamente en caché cuando las veas la primera vez con internet.
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19
+            }).addTo(mapa);
+
+            // Creamos el icono de la moto/vehículo (usamos un emoji o coche para simplificar)
+            const iconoMoto = L.divIcon({
+                html: '<span style="font-size: 24px;">🏍️</span>',
+                className: 'marcador-moto',
+                iconAnchor: [12, 12]
+            });
+
+            marcadorMoto = L.marker([40.59251, -4.19734], { icon: iconoMoto }).addTo(mapa);
         }
 
-        // BUCLE DE SEGUIMIENTO GPS
-        function actualizarPosicion(position) {
-            if (curvasActivas.length === 0) return;
-
+        // CONTROL DE POSICIÓN EN TIEMPO REAL (GPS)
+        function actualizarNavegacion(position) {
             const miLat = position.coords.latitude;
             const miLon = position.coords.longitude;
 
+            // 1. Mover el marcador del vehículo y centrar el mapa automáticamente en tu posición
+            marcadorMoto.setLatLng([miLat, miLon]);
+            mapa.panTo([miLat, miLon]);
+
+            estadoEl.innerText = `GPS Activo. Lat: ${miLat.toFixed(4)} Lon: ${miLon.toFixed(4)}`;
+
+            // 2. Buscar curvas cercanas
             let curvaCercana = null;
             let distanciaMinima = Infinity;
 
-            // Busca solo en las curvas de la provincia seleccionada
-            curvasActivas.forEach(curva => {
+            CURVAS_PRECARGADAS.forEach(curva => {
                 const dist = calcularDistancia(miLat, miLon, curva.lat, curva.lon);
                 if (dist < distanciaMinima) {
                     distanciaMinima = dist;
@@ -118,35 +162,34 @@
                 }
             });
 
-            // Alerta si estamos a menos de 200 metros
+            // 3. Sistema de alertas por colores, velocidad y distancias (Radio de 200 metros)
             if (curvaCercana && distanciaMinima < 200) {
                 flechaEl.innerText = curvaCercana.direccion;
                 distanciaEl.innerText = `${Math.round(distanciaMinima)} m`;
-                
-                if (curvaCercana.tipo === 'rojo') body.style.backgroundColor = '#d32f2f';
-                else if (curvaCercana.tipo === 'naranja') body.style.backgroundColor = '#ef6c00';
-                else body.style.backgroundColor = '#2e7d32';
-                
-                estadoEl.innerText = "Aproximación a curva";
+                velMaxEl.innerText = `Vel. Máx: ${curvaCercana.velMax} km/h`;
+
+                // Cambiar el color de fondo de la pantalla completa según el peligro
+                if (curvaCercana.tipo === 'rojo') {
+                    pantalla.style.backgroundColor = '#d32f2f'; // Fondo Rojo
+                } else if (curvaCercana.tipo === 'naranja') {
+                    pantalla.style.backgroundColor = '#ef6c00'; // Fondo Naranja
+                } else {
+                    pantalla.style.backgroundColor = '#2e7d32'; // Fondo Verde
+                }
             } else {
-                body.style.backgroundColor = '#2e7d32';
+                // Todo despejado
+                pantalla.style.backgroundColor = '#2e7d32'; // Verde por defecto
                 flechaEl.innerText = '⬆️';
                 distanciaEl.innerText = "Ruta limpia";
-                estadoEl.innerText = "Carretera despejada";
+                velMaxEl.innerText = "Vel. Máx: -- km/h";
             }
         }
 
         function errorGPS(err) {
-            estadoEl.innerText = "Error de señal GPS.";
+            estadoEl.innerText = "Buscando señal de satélites...";
         }
 
-        if (navigator.geolocation) {
-            navigator.geolocation.watchPosition(actualizarPosicion, errorGPS, {
-                enableHighAccuracy: true, maximumAge: 0, timeout: 5000
-            });
-        }
-
-        // Fórmula Haversine para medir metros entre coordenadas
+        // FÓRMULA MATEMÁTICA PARA MEDIR METROS
         function calcularDistancia(lat1, lon1, lat2, lon2) {
             const R = 6371e3;
             const phi1 = lat1 * Math.PI / 180; const phi2 = lat2 * Math.PI / 180;
@@ -156,6 +199,21 @@
                       Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda/2) * Math.sin(deltaLambda/2);
             return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
         }
+
+        // Arrancar la aplicación al cargar la página
+        window.onload = () => {
+            inicializarMapa();
+            
+            if (navigator.geolocation) {
+                navigator.geolocation.watchPosition(actualizarNavegacion, errorGPS, {
+                    enableHighAccuracy: true,
+                    maximumAge: 0,
+                    timeout: 5000
+                });
+            } else {
+                estadoEl.innerText = "Tu dispositivo no tiene GPS.";
+            }
+        };
     </script>
 </body>
 </html>
