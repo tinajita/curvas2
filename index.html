@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MotoCurvas Offline</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            height: 100vh;
+            color: white;
+            background-color: #1a1a1a;
+            transition: background-color 0.4s ease;
+            overflow: hidden;
+            padding: 20px;
+        }
+        
+        /* Zona Superior: Controles */
+        header {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            z-index: 10;
+        }
+        .btn-cargar {
+            background-color: rgba(255, 255, 255, 0.2);
+            border: 2px solid white;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        #file-input {
+            display: none;
+        }
+
+        /* Zona Central: Flecha Gigante */
+        main {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-grow: 1;
+        }
+        #flecha {
+            font-size: 180px;
+            font-weight: bold;
+            text-shadow: 0px 4px 10px rgba(0,0,0,0.3);
+            line-height: 1;
+        }
+
+        /* Zona Inferior: Datos */
+        footer {
+            width: 100%;
+            text-align: center;
+            background-color: rgba(0, 0, 0, 0.4);
+            padding: 15px;
+            border-radius: 15px;
+            backdrop-filter: blur(5px);
+        }
+        #distancia {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        #estado {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <label for="file-input" class="btn-cargar">📂 Cargar Ruta (.GPX)</label>
+        <input type="file" id="file-input" accept=".gpx">
+    </header>
+
+    <main>
+        <div id="flecha">--</div>
+    </main>
+
+    <footer>
+        <div id="distancia">Sin ruta cargada</div>
+        <div id="estado">Esperando señal GPS...</div>
+    </footer>
+
+    <script>
+        // Variables de elementos de la pantalla
+        const body = document.body;
+        const flechaEl = document.getElementById('flecha');
+        const distanciaEl = document.getElementById('distancia');
+        const estadoEl = document.getElementById('estado');
+        const fileInput = document.getElementById('file-input');
+
+        // Aquí guardaremos los puntos de la ruta una vez procesados
+        let puntosRuta = []; 
+
+        // 1. LECTURA DEL ARCHIVO GPX (Funciona sin internet)
+        fileInput.addEventListener('change', function(e) {
+            const archivo = e.target.files[0];
+            if (!archivo) return;
+
+            const lector = new FileReader();
+            lector.onload = function(evento) {
+                const contenido = evento.target.result;
+                
+                // Parsear el XML del archivo GPX de forma nativa
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(contenido, "text/xml");
+                const trackpoints = xmlDoc.getElementsByTagName("trkpt");
+
+                puntosRuta = [];
+                
+                for (let i = 0; i < trackpoints.length; i++) {
+                    puntosRuta.push({
+                        lat: parseFloat(trackpoints[i].getAttribute("lat")),
+                        lon: parseFloat(trackpoints[i].getAttribute("lon"))
+                    });
+                }
+
+                if (puntosRuta.length > 3) {
+                    // Calculamos los ángulos de las curvas analizando los puntos de 3 en 3
+                    analizarCurvas EnRuta();
+                    distanciaEl.innerText = "Ruta lista";
+                    estadoEl.innerText = `Se han cargado ${puntosRuta.length} puntos de control.`;
+                } else {
+                    alert("El archivo GPX no contiene suficientes puntos de ruta.");
+                }
+            };
+            lector.readAsText(archivo);
+        });
+
+        // 2. ALGORITMO PARA DETECTAR EL TIPO DE CURVA (Ángulo)
+        function analizarCurvasEnRuta() {
+            for (let i = 1; i < puntosRuta.length - 1; i++) {
+                const pA = puntosRuta[i - 1];
+                const pB = puntosRuta[i]; // El punto central donde evaluamos el giro
+                const pC = puntosRuta[i + 1];
+
+                // Calculamos el rumbo (bearing) de A a B, y de B a C
+                const rumbo1 = calcularRumbo(pA.lat, pA.lon, pB.lat, pB.lon);
+                const rumbo2 = calcularRumbo(pB.lat, pB.lon, pC.lat, pC.lon);
+
+                // Diferencia de ángulo de giro
+                let diferencia = rumbo2 - rumbo1;
+                if (diferencia > 180) diferencia -= 360;
+                if (diferencia < -180) diferencia += 360;
+
+                const anguloGiroAbs = Math.abs(diferencia);
+                
+                // Determinar dirección (Positivo derecha, Negativo izquierda)
+                puntosRuta[i].direccion = diferencia >= 0 ? '➡️' : '⬅️';
+
+                // Clasificar según la brusquedad del giro en grados
+                if (anguloGiroAbs > 45) {
+                    puntosRuta[i].tipo = 'rojo'; // Curva tipo horquilla
+                } else if (anguloGiroAbs > 20) {
+                    puntosRuta[i].tipo = 'naranja'; // Curva pronunciada
+                } else if (anguloGiroAbs > 5) {
+                    puntosRuta[i].tipo = 'verde'; // Curva suave o leve giro
+                } else {
+                    puntosRuta[i].tipo = 'recta'; // Prácticamente recto
+                }
+            }
+        }
+
+        // 3. SEGUIMIENTO DEL GPS EN TIEMPO REAL
+        function actualizarPosicion(position) {
+            const miLat = position.coords.latitude;
+            const miLon = position.coords.longitude;
+
+            if (puntosRuta.length === 0) {
+                estadoEl.innerText = "GPS conectado. Carga un archivo GPX para empezar.";
+                return;
+            }
+
+            let curvaCercana = null;
+            let distanciaMinima = Infinity;
+
+            // Buscamos cuál es el punto de la ruta más cercano a nuestra posición actual
+            for (let i = 1; i < puntosRuta.length - 1; i++) {
+                const dist = calcularDistancia(miLat, miLon, puntosRuta[i].lat, puntosRuta[i].lon);
+                if (dist < distanciaMinima) {
+                    distanciaMinima = dist;
+                    curvaCercana = puntosRuta[i];
+                }
+            }
+
+            // Si estamos a menos de 150 metros de un punto con curva notable, mostramos aviso
+            if (curvaCercana && distanciaMinima < 150 && curvaCercana.tipo !== 'recta') {
+                flechaEl.innerText = curvaCercana.direccion;
+                distanciaEl.innerText = `${Math.round(distanciaMinima)} metros`;
+                
+                if (curvaCercana.tipo === 'rojo') {
+                    body.style.backgroundColor = '#d32f2f'; // Rojo
+                    estadoEl.innerText = "¡PELIGRO! Curva muy cerrada";
+                } else if (curvaCercana.tipo === 'naranja') {
+                    body.style.backgroundColor = '#ef6c00'; // Naranja
+                    estadoEl.innerText = "Curva pronunciada";
+                } else {
+                    body.style.backgroundColor = '#2e7d32'; // Verde
+                    estadoEl.innerText = "Curva suave";
+                }
+            } else {
+                // Estado por defecto: Carretera abierta o curvas insignificantes
+                body.style.backgroundColor = '#2e7d32'; // Verde por defecto
+                flechaEl.innerText = '⬆️';
+                distanciaEl.innerText = "Todo despejado";
+                estadoEl.innerText = "Sigue la ruta principal";
+            }
+        }
+
+        function errorGPS(err) {
+            estadoEl.innerText = "Error GPS: Revisa que tengas la ubicación activada.";
+            console.warn(`ERROR(${err.code}): ${err.message}`);
+        }
+
+        // Activar el rastreador de alta precisión por hardware (GPS satelital)
+        if (navigator.geolocation) {
+            navigator.geolocation.watchPosition(actualizarPosicion, errorGPS, {
+                enableHighAccuracy: true,
+                maximumAge: 0,
+                timeout: 4000
+            });
+        } else {
+            estadoEl.innerText = "Tu navegador no soporta geolocalización.";
+        }
+
+        // --- FUNCIONES MATEMÁTICAS DE NAVEGACIÓN (Fórmulas Haversine y Rumbo) ---
+        function calcularDistancia(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; 
+            const phi1 = lat1 * Math.PI / 180;
+            const phi2 = lat2 * Math.PI / 180;
+            const deltaPhi = (lat2 - lat1) * Math.PI / 180;
+            const deltaLambda = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(deltaPhi/2) * Math.sin(deltaPhi/2) +
+                      Math.cos(phi1) * Math.cos(phi2) *
+                      Math.sin(deltaLambda/2) * Math.sin(deltaLambda/2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+
+        function calcularRumbo(lat1, lon1, lat2, lon2) {
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const lat1Rad = lat1 * Math.PI / 180;
+            const lat2Rad = lat2 * Math.PI / 180;
+            const y = Math.sin(dLon) * Math.cos(lat2Rad);
+            const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLon);
+            return Math.atan2(y, x) * 180 / Math.PI;
+        }
+    </script>
+</body>
+</html>
