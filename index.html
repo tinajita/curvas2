@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MotoRadar Vectorial Pro</title>
+    <title>MotoRadar Vectorial Puro</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -88,7 +88,7 @@
 
         let mapa;
         let marcadorMoto;
-        let capasCarreteras = []; // Array para guardar las líneas individuales de las carreteras
+        let capasCarreteras = []; 
         let grupoPueblos = null;
         let curvasZonaOffline = [];
 
@@ -98,7 +98,7 @@
         const FACTOR_SUAVIZADO = 0.12; 
 
         function inicializarMapa() {
-            // Clave: preferCanvas pinta líneas directamente en pantalla, eliminando las imágenes pesadas
+            // ELIMINADA la capa de imágenes de internet. Ahora solo se pinta con Canvas (código puro)
             mapa = L.map('map', { 
                 zoomControl: false, attributionControl: false, preferCanvas: true 
             }).setView([posActual.lat, posActual.lon], 6); 
@@ -121,7 +121,6 @@
             requestAnimationFrame(bucleAnimacionFluida);
         }
 
-        // DESCARGA AUTOMÁTICA DE DATOS VECTORIALES (CARRETERAS + PUEBLOS)
         async function descargarYProcesarTodo() {
             const zona = document.getElementById('zona-input').value.trim();
             if(!zona) return alert("Escribe una zona válida");
@@ -129,7 +128,6 @@
             distanciaEl.innerText = "Descargando...";
             estadoEl.innerText = "Sincronizando con OpenStreetMap...";
             
-            // Query combinada: Se baja carreteras (ways) y pueblos/villas (nodes) de la zona elegida
             const query = `[out:json][timeout:50];
                 area["name"="${zona}"]->.searchArea;
                 (
@@ -150,36 +148,30 @@
                     return;
                 }
 
-                // Limpiar datos previos
                 capasCarreteras.forEach(c => mapa.removeLayer(c.objetoGrafico));
                 capasCarreteras = [];
                 grupoPueblos.clearLayers();
                 curvasZonaOffline = [];
 
-                // Separar y procesar carreteras y pueblos
                 let primerPuntoValido = null;
 
                 data.elements.forEach(el => {
-                    // Si es una carretera (way)
                     if (el.type === "way" && el.geometry) {
                         let coordenadas = el.geometry.map(p => [p.lat, p.lon]);
                         if(!primerPuntoValido) primerPuntoValido = coordenadas[0];
 
-                        // Dibujamos la carretera ATENUADA por defecto (Gris muy oscuro/fino)
+                        // Líneas grises atenuadas que simulan el asfalto secundario de fondo
                         let poly = L.polyline(coordenadas, {
-                            color: '#2a2a2a', weight: 3, opacity: 0.85
+                            color: '#333333', weight: 3, opacity: 0.85
                         }).addTo(mapa);
 
-                        // Guardamos la carretera en nuestro registro interno para poder encenderla luego en azul
                         capasCarreteras.push({
                             puntos: coordenadas,
                             objetoGrafico: poly
                         });
 
-                        // Calcular curvas en esta carretera
                         calcularCurvasCarretera(el.geometry);
                     }
-                    // Si es un pueblo (node)
                     else if (el.type === "node" && el.tags && el.tags.name) {
                         L.marker([el.lat, el.lon], {
                             icon: L.divIcon({
@@ -191,7 +183,6 @@
                     }
                 });
 
-                // Posicionar mapa
                 if(primerPuntoValido) {
                     posActual = { lat: primerPuntoValido[0], lon: primerPuntoValido[1] };
                     posObjetivo = { lat: primerPuntoValido[0], lon: primerPuntoValido[1] };
@@ -209,7 +200,6 @@
             }
         }
 
-        // ALGORITMO DE CURVAS
         function calcularCurvasCarretera(puntos) {
             if(puntos.length < 3) return;
             for (let i = 1; i < puntos.length - 1; i++) {
@@ -227,16 +217,13 @@
             }
         }
 
-        // GPS EN CARRETERA (100% OFFLINE)
         function actualizarPosicion(position) {
             posObjetivo.lat = position.coords.latitude;
             posObjetivo.lon = position.coords.longitude;
 
-            // 1. RESALTADO EN AZUL DE LA CARRETERA ACTUAL
-            // Busca qué carretera de la lista está pisando la moto (a menos de 25 metros)
+            // RESALTADO EN AZUL DE TU CARRETERA ACTUAL
             capasCarreteras.forEach(carretera => {
                 let motoCercaDeEstaCarretera = false;
-                
                 for(let p of carretera.puntos) {
                     if(calcularDistancia(posObjetivo.lat, posObjetivo.lon, p[0], p[1]) < 25) {
                         motoCercaDeEstaCarretera = true;
@@ -245,15 +232,13 @@
                 }
 
                 if (motoCercaDeEstaCarretera) {
-                    // Si estás encima, se enciende en AZUL ELÉCTRICO y se hace más gruesa
-                    carretera.objetoGrafico.setStyle({ color: '#00d2ff', weight: 6, opacity: 1 });
+                    carretera.objetoGrafico.setStyle({ color: '#00d2ff', weight: 6, opacity: 1 }); // Azul eléctrico encima
                 } else {
-                    // Si no, vuelve a su estado gris atenuado de fondo
-                    carretera.objetoGrafico.setStyle({ color: '#2a2a2a', weight: 3, opacity: 0.85 });
+                    carretera.objetoGrafico.setStyle({ color: '#333333', weight: 3, opacity: 0.85 }); // Gris atenuado de fondo
                 }
             });
 
-            // 2. DETECCIÓN DE CURVAS CERCANAS
+            // DETECCIÓN DE CURVAS
             if (curvasZonaOffline.length === 0) return;
             let curvaCercana = null; let distanciaMinima = Infinity;
 
@@ -277,7 +262,7 @@
                     estadoEl.innerText = "Curva suave";
                 }
             } else {
-                filtroAlerta.style.backgroundColor = "rgba(0, 0, 0, 0)"; // Fondo limpio
+                filtroAlerta.style.backgroundColor = "rgba(0, 0, 0, 0)";
                 flechaEl.innerText = '⬆️'; distanciaEl.innerText = "Ruta limpia";
                 estadoEl.innerText = "Carretera despejada";
             }
