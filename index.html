@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MotoCurvas OSM Offline Fijo</title>
+    <title>MotoCurvas Ultra Fluido</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -13,64 +13,37 @@
         body {
             margin: 0; padding: 0;
             font-family: 'Segoe UI', Arial, sans-serif;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            background-color: #1a1a1a;
-            overflow: hidden;
+            height: 100vh; display: flex; flex-direction: column;
+            background-color: #1a1a1a; overflow: hidden;
         }
 
-        #map {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 1;
-        }
+        #map { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
 
         #filtro-alerta {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 2;
-            pointer-events: none;
-            background-color: rgba(46, 125, 50, 0.15); /* Filtro verde muy suave */
-            transition: background-color 0.3s ease;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2;
+            pointer-events: none; background-color: rgba(46, 125, 50, 0.15);
+            transition: background-color 0.2s ease; /* Transición de color ultra rápida */
         }
 
-        /* Panel Superior para usar EN CASA (WiFi) */
         #config-casa {
-            position: absolute;
-            top: 15px; left: 50%; transform: translateX(-50%);
-            z-index: 10;
-            background: rgba(0,0,0,0.9);
-            padding: 15px; border-radius: 12px;
-            width: 90%; max-width: 380px; text-align: center;
-            border: 2px solid #007bef;
+            position: absolute; top: 15px; left: 50%; transform: translateX(-50%); z-index: 10;
+            background: rgba(0,0,0,0.9); padding: 15px; border-radius: 12px;
+            width: 90%; max-width: 380px; text-align: center; border: 2px solid #007bef;
         }
-        input, button {
-            width: 100%; padding: 10px; margin-top: 8px;
-            border-radius: 6px; border: none; font-size: 16px;
-        }
+        input, button { width: 100%; padding: 10px; margin-top: 8px; border-radius: 6px; border: none; font-size: 16px; }
         button { background: #007bef; color: white; font-weight: bold; cursor: pointer; }
 
-        /* Cuadro flotante con Flecha y Distancia */
         #capa-alerta {
-            position: absolute;
-            top: 20px; left: 50%; transform: translateX(-50%);
-            z-index: 9;
-            background-color: rgba(0, 0, 0, 0.85);
-            border-radius: 20px;
-            padding: 12px 25px;
-            display: flex; align-items: center; gap: 20px;
-            backdrop-filter: blur(5px);
-            border: 2px solid white;
-            min-width: 290px; justify-content: center;
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9;
+            background-color: rgba(0, 0, 0, 0.85); border-radius: 20px; padding: 12px 25px;
+            display: flex; align-items: center; gap: 20px; backdrop-filter: blur(5px);
+            border: 2px solid white; min-width: 290px; justify-content: center;
             box-shadow: 0px 4px 15px rgba(0,0,0,0.5);
         }
         #flecha { font-size: 65px; font-weight: bold; line-height: 1; }
         #datos-curva { display: flex; flex-direction: column; }
         #distancia { font-size: 26px; font-weight: bold; color: white; }
         #estado { font-size: 13px; color: #ccc; }
-
-        .marcador-moto { text-shadow: 0px 2px 5px rgba(0,0,0,0.5); }
     </style>
 </head>
 <body>
@@ -102,14 +75,21 @@
         let marcadorMoto;
         let curvasZonaOffline = [];
 
+        // Variables para el motor de movimiento fluido (Interpolación)
+        let posActual = { lat: 40.4167, lon: -3.7037 };
+        let posObjetivo = { lat: 40.4167, lon: -3.7037 };
+        const FACTOR_SUAVIZADO = 0.12; // Cuanto más bajo, más suave es el deslizamiento del mapa
+
         function inicializarMapa() {
-            // Mapa inicial por defecto (Se verá España entera si no hay GPS)
-            mapa = L.map('map', { zoomControl: false, attributionControl: false }).setView([40.4167, -3.7037], 6); 
+            mapa = L.map('map', { 
+                zoomControl: false, 
+                attributionControl: false,
+                zoomAnimation: true,
+                markerZoomAnimation: true
+            }).setView([posActual.lat, posActual.lon], 6); 
 
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 18,
-                crossOrigin: true,
-                keepBuffer: 10
+                maxZoom: 18, crossOrigin: true, keepBuffer: 12
             }).addTo(mapa);
 
             const iconoMoto = L.divIcon({
@@ -117,8 +97,64 @@
                 className: 'marcador-moto',
                 iconAnchor: [14, 14]
             });
-            // Añadimos el marcador en el centro provisional
-            marcadorMoto = L.marker([40.4167, -3.7037], { icon: iconoMoto }).addTo(mapa);
+            marcadorMoto = L.marker([posActual.lat, posActual.lon], { icon: iconoMoto }).addTo(mapa);
+
+            // Arrancamos el bucle de renderizado de alta fluidez (60 veces por segundo)
+            bucleAnimacionFluida();
+        }
+
+        // MOTOR GRÁFICO (60 FPS): Elimina los saltos del GPS de raíz
+        function bucleAnimacionFluida() {
+            // Nos acercamos a la posición real del GPS poco a poco en cada fotograma
+            posActual.lat += (posObjetivo.lat - posActual.lat) * FACTOR_SUAVIZADO;
+            posActual.lon += (posObjetivo.lon - posActual.lon) * FACTOR_SUAVIZADO;
+
+            // Movemos el marcador y el mapa con precisión milimétrica
+            marcadorMoto.setLatLng([posActual.lat, posActual.lon]);
+            mapa.panTo([posActual.lat, posActual.lon], { animate: false }); 
+
+            // Solicita al navegador ejecutar esto de nuevo en el siguiente milisegundo disponible de la pantalla
+            requestAnimationFrame(bucleAnimacionFluida);
+        }
+
+        function recibirCoordenadasGPS(position) {
+            // Guardamos el objetivo real. El motor gráfico se encargará de "deslizarse" hacia él sin dar saltos.
+            posObjetivo.lat = position.coords.latitude;
+            posObjetivo.lon = position.coords.longitude;
+
+            if (curvasZonaOffline.length === 0) return;
+
+            let curvaCercana = null;
+            let distanciaMinima = Infinity;
+
+            curvasZonaOffline.forEach(curva => {
+                const dist = calcularDistancia(posObjetivo.lat, posObjetivo.lon, curva.lat, curva.lon);
+                if (dist < distanciaMinima) {
+                    distanciaMinima = dist;
+                    curvaCercana = curva;
+                }
+            });
+
+            if (curvaCercana && distanciaMinima < 200) {
+                flechaEl.innerText = curvaCercana.dir;
+                distanciaEl.innerText = `${Math.round(distanciaMinima)} m`;
+                
+                if (curvaCercana.tipo === 'rojo') {
+                    filtroAlerta.style.backgroundColor = "rgba(211, 47, 47, 0.4)";
+                    estadoEl.innerText = "Giro muy cerrado";
+                } else if (curvaCercana.tipo === 'naranja') {
+                    filtroAlerta.style.backgroundColor = "rgba(239, 108, 0, 0.4)";
+                    estadoEl.innerText = "Curva pronunciada";
+                } else {
+                    filtroAlerta.style.backgroundColor = "rgba(46, 125, 50, 0.15)";
+                    estadoEl.innerText = "Curva suave";
+                }
+            } else {
+                filtroAlerta.style.backgroundColor = "rgba(46, 125, 50, 0.15)";
+                flechaEl.innerText = '⬆️';
+                distanciaEl.innerText = "Ruta limpia";
+                estadoEl.innerText = "Carretera despejada";
+            }
         }
 
         async function descargarYProcesarZona() {
@@ -139,28 +175,25 @@
                 const data = await response.json();
                 
                 if(!data.elements || data.elements.length === 0) {
-                    estadoEl.innerText = "No se encontraron carreteras. Revisa el nombre.";
+                    estadoEl.innerText = "No se encontraron carreteras.";
                     return;
                 }
 
                 analizarCurvasDelMapa(data.elements);
 
-                // FORZAR MOVIMIENTO: Buscamos el primer punto y movemos el mapa AHÍ directamente
-                // Esto hace que veas el mapa inmediatamente aunque estés bajo techo y sin cobertura GPS
                 const primerPunto = data.elements.find(e => e.geometry && e.geometry.length > 0).geometry[0];
                 
-                mapa.setView([primerPunto.lat, primerPunto.lon], 14); // Hace zoom en la zona descargada
-                marcadorMoto.setLatLng([primerPunto.lat, primerPunto.lon]);
+                // Actualizamos posición actual y objetivo de golpe para centrar el mapa al inicio
+                posActual = { lat: primerPunto.lat, lon: primerPunto.lon };
+                posObjetivo = { lat: primerPunto.lat, lon: primerPunto.lon };
+                mapa.setView([primerPunto.lat, primerPunto.lon], 15);
 
                 estadoEl.innerText = "Mapa e información listos.";
                 distanciaEl.innerText = `${curvasZonaOffline.length} Curvas`;
-
                 document.getElementById('config-casa').style.display = 'none';
 
-                alert(`¡Procesadas ${curvasZonaOffline.length} curvas en ${zona}!\n\nYa puedes ver las carreteras en pantalla. Arrastra el mapa con el dedo por las rutas que vayas a hacer para memorizar los mapas antes de salir.`);
-
             } catch (error) {
-                estadoEl.innerText = "Error al conectar con los servidores de mapas.";
+                estadoEl.innerText = "Error al conectar.";
                 console.error(error);
             }
         }
@@ -195,52 +228,7 @@
             });
         }
 
-        function actualizarPosicion(position) {
-            const miLat = position.coords.latitude;
-            const miLon = position.coords.longitude;
-
-            marcadorMoto.setLatLng([miLat, miLon]);
-            mapa.panTo([miLat, miLon]); // Solo centra el mapa automáticamente si el GPS responde de verdad
-
-            if (curvasZonaOffline.length === 0) return;
-
-            let curvaCercana = null;
-            let distanciaMinima = Infinity;
-
-            curvasZonaOffline.forEach(curva => {
-                const dist = calcularDistancia(miLat, miLon, curva.lat, curva.lon);
-                if (dist < distanciaMinima) {
-                    distanciaMinima = dist;
-                    curvaCercana = curva;
-                }
-            });
-
-            if (curvaCercana && distanciaMinima < 200) {
-                flechaEl.innerText = curvaCercana.dir;
-                distanciaEl.innerText = `${Math.round(distanciaMinima)} m`;
-                
-                if (curvaCercana.tipo === 'rojo') {
-                    filtroAlerta.style.backgroundColor = "rgba(211, 47, 47, 0.4)";
-                    estadoEl.innerText = "Giro muy cerrado";
-                } else if (curvaCercana.tipo === 'naranja') {
-                    filtroAlerta.style.backgroundColor = "rgba(239, 108, 0, 0.4)";
-                    estadoEl.innerText = "Curva pronunciada";
-                } else {
-                    filtroAlerta.style.backgroundColor = "rgba(46, 125, 50, 0.15)";
-                    estadoEl.innerText = "Curva suave";
-                }
-            } else {
-                filtroAlerta.style.backgroundColor = "rgba(46, 125, 50, 0.15)";
-                flechaEl.innerText = '⬆️';
-                distanciaEl.innerText = "Ruta limpia";
-                estadoEl.innerText = "Carretera despejada";
-            }
-        }
-
-        // Si falla el GPS (como bajo techo), simplemente avisamos discretamente abajo sin romper el mapa
-        function errorGPS() { 
-            estadoEl.innerText = "Bajo techo / Buscando satélites GPS..."; 
-        }
+        function errorGPS() { estadoEl.innerText = "Buscando satélites GPS..."; }
 
         function calcularDistancia(lat1, lon1, lat2, lon2) {
             const R = 6371e3;
@@ -255,8 +243,11 @@
         window.onload = () => {
             inicializarMapa();
             if (navigator.geolocation) {
-                navigator.geolocation.watchPosition(actualizarPosicion, errorGPS, {
-                    enableHighAccuracy: true, maximumAge: 0, timeout: 5000
+                // Forzamos la máxima frecuencia de refresco del chip de localización
+                navigator.geolocation.watchPosition(recibirCoordenadasGPS, errorGPS, {
+                    enableHighAccuracy: true, 
+                    maximumAge: 0, 
+                    timeout: 2000
                 });
             }
         };
