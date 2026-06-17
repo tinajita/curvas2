@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MotoNav Dashboard Pro</title>
+    
+    <link href="https://unpkg.com/maplibre-gl@4.3.2/dist/maplibre-gl.css" rel="stylesheet" />
+    
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        body, html {
+            height: 100%;
+            background-color: #0a0a0a;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        #navigator-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            position: relative;
+        }
+
+        /* EL MAPA (Fondo total) */
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+            z-index: 1;
+        }
+
+        /* CAPA SUPERIOR: Contenedor dinámico de interfaz */
+        #ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 15px;
+        }
+
+        /* ESTADO A: Buscador Inicial */
+        #search-block {
+            background: rgba(20, 20, 20, 0.95);
+            border: 1px solid #333;
+            border-bottom: 2px solid #00ff66;
+            padding: 12px;
+            border-radius: 20px;
+            pointer-events: auto;
+            box-shadow: 0 4px 25px rgba(0,0,0,0.6);
+            display: flex;
+            gap: 10px;
+        }
+
+        #destination-input {
+            flex: 1;
+            background: #111;
+            border: 1px solid #444;
+            color: #fff;
+            padding: 12px 16px;
+            font-size: 16px;
+            border-radius: 25px;
+            outline: none;
+        }
+
+        #destination-input:focus { border-color: #00ff66; }
+
+        .btn-action {
+            background: #00ff66;
+            color: #000;
+            border: none;
+            padding: 0 22px;
+            font-size: 14px;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+
+        /* ESTADO B: Las "Pulgas" Flotantes de Navegación */
+        #nav-pill-top {
+            display: none;
+            align-self: center;
+            background: rgba(15, 15, 15, 0.9);
+            border: 2px solid #00ff66;
+            padding: 10px 20px;
+            border-radius: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            pointer-events: auto;
+            align-items: center;
+            gap: 15px;
+        }
+
+        #current-road {
+            font-size: 20px;
+            font-weight: 900;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-close-route {
+            background: #ff3d00;
+            color: white;
+            border: none;
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        /* BOTÓN FLOTANTE RECENTRAR */
+        #recenter-container {
+            position: absolute;
+            top: 100px;
+            right: 15px;
+            display: none;
+            pointer-events: auto;
+        }
+
+        .btn-recenter {
+            background: #00e5ff;
+            color: #000;
+            border: none;
+            padding: 10px 18px;
+            font-size: 12px;
+            font-weight: bold;
+            border-radius: 20px;
+            text-transform: uppercase;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            cursor: pointer;
+        }
+
+        /* TELEMETRÍA INFERIOR (Pulga de Velocidad) */
+        #bottom-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            width: 100%;
+        }
+
+        .speed-pill {
+            display: flex;
+            align-items: baseline;
+            background: rgba(15, 15, 15, 0.9);
+            padding: 8px 18px;
+            border-radius: 20px;
+            border: 1px solid #222;
+            pointer-events: auto;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+
+        #speed-value {
+            font-size: 40px;
+            font-weight: 900;
+            color: #00ff66;
+            line-height: 1;
+        }
+
+        .speed-unit {
+            font-size: 13px;
+            color: #888;
+            margin-left: 5px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .gps-pill {
+            background: rgba(15, 15, 15, 0.9);
+            padding: 8px 14px;
+            border-radius: 15px;
+            font-size: 11px;
+            font-weight: bold;
+            color: #aaa;
+            border: 1px solid #222;
+            pointer-events: auto;
+        }
+
+        /* Marcador Flecha (Sin transiciones de transform para evitar retardos con respecto al mapa) */
+        .nav-arrow-marker {
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.7));
+        }
+    </style>
+</head>
+<body>
+
+    <div id="navigator-container">
+        <div id="map"></div>
+
+        <div id="ui-overlay">
+            <div id="search-block">
+                <input type="text" id="destination-input" placeholder="¿A dónde vamos con la moto?...">
+                <button class="btn-action" onclick="fijarRutaDestino()">Ir</button>
+            </div>
+
+            <div id="nav-pill-top">
+                <span id="current-road">Calculando...</span>
+                <button class="btn-close-route" onclick="cancelarRuta()">✕</button>
+            </div>
+
+            <div id="recenter-container">
+                <button class="btn-recenter" onclick="recenterManual()">✕ Recentrar</button>
+            </div>
+
+            <div id="bottom-row">
+                <div class="speed-pill">
+                    <span id="speed-value">0</span>
+                    <span class="speed-unit">km/h</span>
+                </div>
+                <div class="gps-pill" id="gps-status">GPS: OK</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/maplibre-gl@4.3.2/dist/maplibre-gl.js"></script>
+
+    <script>
+        let map;
+        let arrowMarker;
+        let miPosicion = [-4.4214, 36.7213]; // Málaga inicial
+        let lastValidBearing = 0;
+        
+        let mapaDesplazadoPorUsuario = false;
+        let autoRecenterTimer = null;
+
+        const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
+
+        // CLAVE: Calculamos el píxel exacto del desfase en el eje Y.
+        // Queremos que el punto del mapa se dibuje un 22% por debajo del centro real de la pantalla.
+        const getCenterOffset = () => [0, window.innerHeight * 0.22];
+
+        function initNavigator() {
+            map = new maplibregl.Map({
+                container: 'map',
+                style: MAP_STYLE,
+                center: miPosicion, 
+                zoom: 16.5,                 
+                pitch: 60, // Ángulo de perspectiva pronunciado                 
+                bearing: 0,
+                attributionControl: false
+            });
+
+            map.on('load', () => {
+                configurarCapasRuta();
+                crearIconoNavegacion();
+                arrancarSeguimientoGPS();
+                configurarEventosGestos();
+                
+                // Aplicamos el desfase inicial
+                setTimeout(() => { recenterManual(); }, 300);
+            });
+        }
+
+        function configurarEventosGestos() {
+            map.on('dragstart', () => {
+                mapaDesplazadoPorUsuario = true;
+                document.getElementById('recenter-container').style.display = 'block';
+                clearTimeout(autoRecenterTimer);
+            });
+
+            map.on('dragend', () => {
+                arrancarTemporizadorRecentrando();
+            });
+        }
+
+        function arrancarTemporizadorRecentrando() {
+            clearTimeout(autoRecenterTimer);
+            autoRecenterTimer = setTimeout(() => {
+                recenterManual();
+            }, 6000);
+        }
+
+        function recenterManual() {
+            mapaDesplazadoPorUsuario = false;
+            document.getElementById('recenter-container').style.display = 'none';
+            clearTimeout(autoRecenterTimer);
+            
+            // Usamos 'offset' para desplazar el eje de la cámara hacia abajo de forma limpia
+            map.easeTo({
+                center: miPosicion,
+                zoom: 16.5,
+                bearing: lastValidBearing,
+                pitch: 60,
+                offset: getCenterOffset(),
+                duration: 600
+            });
+        }
+
+        function configurarCapasRuta() {
+            map.addSource('route-source', {
+                type: 'geojson',
+                data: { type: 'FeatureCollection', features: [] }
+            });
+
+            map.addLayer({
+                id: 'route-casing',
+                type: 'line',
+                source: 'route-source',
+                layout: { 'line-join': 'round', 'line-cap': 'round' },
+                paint: { 'line-color': '#000000', 'line-width': 16, 'line-opacity': 0.85 }
+            });
+
+            map.addLayer({
+                id: 'route-core',
+                type: 'line',
+                source: 'route-source',
+                layout: { 'line-join': 'round', 'line-cap': 'round' },
+                paint: { 'line-color': '#00ff66', 'line-width': 8, 'line-opacity': 0.95 }
+            });
+        }
+
+        function crearIconoNavegacion() {
+            const container = document.createElement('div');
+            container.className = 'nav-arrow-marker';
+            container.innerHTML = `
+                <svg width="42" height="42" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M50 5L90 90L50 70L10 90L50 5Z" fill="#ffffff" stroke="#00e5ff" stroke-width="6" stroke-linejoin="round"/>
+                </svg>
+            `;
+            arrowMarker = new maplibregl.Marker({ element: container }).setLngLat(miPosicion).addTo(map);
+        }
+
+        async function fijarRutaDestino() {
+            const query = document.getElementById('destination-input').value;
+            if (!query) return;
+
+            try {
+                const searchResponse = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
+                const searchData = await searchResponse.json();
+                if (searchData.length === 0) return;
+
+                const destLon = parseFloat(searchData[0].lon);
+                const destLat = parseFloat(searchData[0].lat);
+
+                const routeResponse = await fetch(`https://router.project-osrm.org/route/v1/driving/${miPosicion[0]},${miPosicion[1]};${destLon},${destLat}?overview=full&geometries=geojson`);
+                const routeData = await routeResponse.json();
+                if (!routeData.routes || routeData.routes.length === 0) return;
+
+                document.getElementById('search-block').style.display = 'none';
+                const pulgaTop = document.getElementById('nav-pill-top');
+                pulgaTop.style.display = 'flex';
+                pulgaTop.querySelector('#current-road').innerText = query.split(',')[0];
+
+                map.getSource('route-source').setData({
+                    type: 'FeatureCollection',
+                    features: [{ type: 'Feature', geometry: routeData.routes[0].geometry, properties: {} }]
+                });
+
+                recenterManual();
+
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        function cancelarRuta() {
+            map.getSource('route-source').setData({ type: 'FeatureCollection', features: [] });
+            document.getElementById('nav-pill-top').style.display = 'none';
+            document.getElementById('search-block').style.display = 'flex';
+            document.getElementById('destination-input').value = '';
+            recenterManual();
+        }
+
+        function arrancarSeguimientoGPS() {
+            if (!navigator.geolocation) return;
+
+            navigator.geolocation.watchPosition(
+                (position) => {
+                    const lon = position.coords.longitude;
+                    const lat = position.coords.latitude;
+                    const velocidad = position.coords.speed ? Math.round(position.coords.speed * 3.6) : 0;
+                    
+                    miPosicion = [lon, lat];
+
+                    if (position.coords.heading !== null && position.coords.heading !== undefined) {
+                        lastValidBearing = position.coords.heading;
+                    }
+
+                    document.getElementById('speed-value').innerText = velocidad;
+                    document.getElementById('gps-status').innerText = `SAT OK (±${Math.round(position.coords.accuracy)}m)`;
+
+                    // Sincronizamos la flecha exactamente con la posición actual
+                    arrowMarker.setLngLat(miPosicion);
+
+                    const arrowElement = document.querySelector('.nav-arrow-marker');
+                    if (arrowElement) {
+                        arrowElement.style.transform = `rotate(${lastValidBearing}deg)`;
+                    }
+
+                    // En movimiento constante, aplicamos el desfase (offset) para mantener la flecha abajo
+                    if (!mapaDesplazadoPorUsuario) {
+                        map.easeTo({
+                            center: miPosicion,
+                            bearing: lastValidBearing,
+                            offset: getCenterOffset(),
+                            duration: 250,
+                            easing: (t) => t
+                        });
+                    }
+                },
+                (err) => console.error(err),
+                { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
+            );
+        }
+
+        window.onload = initNavigator;
+    </script>
+</body>
+</html>
