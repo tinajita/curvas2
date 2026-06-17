@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MotoNav - Offline & Curves</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        body, html {
+            height: 100%;
+            background-color: #1a1a1a;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        #app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            position: relative;
+        }
+
+        /* Panel Superior: Roadbook */
+        #roadbook-panel {
+            height: 130px;
+            background: #111;
+            border-bottom: 3px solid #ffb300;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px;
+            z-index: 1000;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+
+        .info-box {
+            text-align: center;
+            flex: 1;
+        }
+
+        #arrow-display {
+            font-size: 65px;
+            font-weight: bold;
+            line-height: 1;
+            transition: color 0.3s ease;
+            color: #00ff66;
+        }
+
+        #instruction-text {
+            font-size: 16px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 5px;
+        }
+
+        /* Indicador de Estado Offline/Online */
+        #status-badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+            background: #ff3d00;
+            z-index: 1001;
+        }
+
+        /* Mapa */
+        #map {
+            flex: 1;
+            width: 100%;
+            background: #242424;
+        }
+
+        /* Banner Inteligente de Descarga */
+        #download-banner {
+            display: none;
+            position: absolute;
+            top: 145px;
+            left: 15px;
+            right: 15px;
+            background: #222;
+            border: 2px solid #ffb300;
+            border-radius: 12px;
+            padding: 15px;
+            z-index: 2000;
+            box-shadow: 0 6px 25px rgba(0,0,0,0.7);
+        }
+
+        #download-banner h4 { color: #ffb300; margin-bottom: 6px; font-size: 16px; }
+        #download-banner p { font-size: 13px; color: #ccc; margin-bottom: 12px; line-height: 1.4; }
+        
+        .progress-bar-container {
+            width: 100%;
+            background: #444;
+            height: 8px;
+            border-radius: 4px;
+            margin-bottom: 12px;
+            display: none;
+            overflow: hidden;
+        }
+        .progress-bar {
+            width: 0%;
+            height: 100%;
+            background: #00ff66;
+            transition: width 0.1s linear;
+        }
+
+        /* Panel de Control Inferior */
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: rgba(17, 17, 17, 0.95);
+            padding: 10px 15px;
+            border-radius: 30px;
+            display: flex;
+            gap: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            border: 1px solid #444;
+        }
+
+        button {
+            background: #ffb300;
+            color: #111;
+            border: none;
+            padding: 10px 16px;
+            font-size: 12px;
+            font-weight: bold;
+            border-radius: 20px;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+        button.active { background: #ff3d00; color: white; }
+        button.success { background: #00ff66; color: #000; }
+        button.secondary { background: #444; color: #fff; }
+    </style>
+</head>
+<body>
+
+    <div id="app-container">
+        <div id="status-badge">Modo Online</div>
+
+        <div id="roadbook-panel">
+            <div class="info-box">
+                <div id="arrow-display">↑</div>
+                <div id="instruction-text">Esperando GPS...</div>
+            </div>
+        </div>
+
+        <div id="map"></div>
+
+        <div id="download-banner">
+            <h4 id="banner-title">🗺️ Mapa Offline Disponible</h4>
+            <p id="download-message"></p>
+            <div class="progress-bar-container" id="p-container">
+                <div class="progress-bar" id="p-bar"></div>
+            </div>
+            <div style="display: flex; gap: 10px;" id="banner-actions">
+                <button onclick="iniciarDescargaProvincia()" class="success">Descargar</button>
+                <button onclick="cerrarBanner()" class="secondary">Luego</button>
+            </div>
+        </div>
+
+        <div id="controls">
+            <button id="btn-sim" onclick="toggleSimulation()">Simular Moto</button>
+            <button id="btn-net" onclick="toggleNetwork()">Simular Cobertura</button>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        let map, motoMarker, routeLine, db;
+        let simInterval = null;
+        let isOnline = true;
+        let currentStep = 0;
+        let regionActual = null;
+
+        // Base de datos de provincias (Bounding Boxes)
+        const REGIONES_MAPA = [
+            {
+                nombre: "Málaga",
+                bbox: { latMin: 36.30, latMax: 37.25, lonMin: -5.60, lonMax: -3.70 },
+                colindantes: "Cádiz, Sevilla y Córdoba",
+                archivo_fake_size: 24 // Megabytes simulados
+            }
+        ];
+
+        // Ruta de curvas (Entorno de la Sierra de Málaga/Ronda)
+        const mockRoute = [
+            [36.7410, -5.1610], [36.7425, -5.1610], [36.7440, -5.1610],
+            [36.7455, -5.1595], [36.7465, -5.1570], [36.7475, -5.1550], 
+            [36.7490, -5.1550], [36.7505, -5.1552], [36.7515, -5.1575], 
+            [36.7520, -5.1605], [36.7523, -5.1635], [36.7535, -5.1645], [36.7550, -5.1645]
+        ];
+
+        // --- 1. INICIALIZAR INDEXEDDB (Base de datos nativa del móvil) ---
+        function initDatabase() {
+            const request = indexedDB.open("MotoNavMaps", 1);
+            
+            request.onupgradeneeded = (e) => {
+                db = e.target.result;
+                // Creamos un almacén de objetos llamado "mapas_provincias"
+                if (!db.objectStoreNames.contains("mapas_provincias")) {
+                    db.createObjectStore("mapas_provincias", { keyPath: "provincia" });
+                }
+            };
+
+            request.onsuccess = (e) => {
+                db = e.target.result;
+                initMap();
+            };
+        }
+
+        // --- 2. INICIALIZAR MAPA ---
+        function initMap() {
+            map = L.map('map', { zoomControl: false, attributionControl: false }).setView(mockRoute[0], 14);
+
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
+
+            routeLine = L.polyline(mockRoute, { color: '#00e5ff', weight: 6, opacity: 0.8 }).addTo(map);
+            motoMarker = L.circleMarker(mockRoute[0], { radius: 10, color: '#fff', fillColor: '#ffb300', fillOpacity: 1, weight: 3 }).addTo(map);
+
+            // Forzar una primera lectura de ubicación simulada para activar el geofencing pasivo
+            analizarUbicacionParaDescarga(mockRoute[0][0], mockRoute[0][1]);
+        }
+
+        // --- 3. GEOFENCING: DETECTAR SI TENEMOS EL MAPA OFFLINE ---
+        function analizarUbicacionParaDescarga(lat, lon) {
+            // Buscamos si las coordenadas caen dentro de alguna provincia de nuestra lista
+            regionActual = REGIONES_MAPA.find(r => 
+                lat >= r.bbox.latMin && lat <= r.bbox.latMax &&
+                lon >= r.bbox.lonMin && lon <= r.bbox.lonMax
+            );
+
+            if (regionActual) {
+                // Consultamos a IndexedDB si ya nos descargamos esta provincia previamente
+                const transaction = db.transaction(["mapas_provincias"], "readonly");
+                const store = transaction.objectStore(["mapas_provincias"]);
+                const request = store.get(regionActual.nombre);
+
+                request.onsuccess = () => {
+                    if (!request.result) {
+                        // No está descargado -> saltar aviso inteligente
+                        mostrarBannerSugerencia();
+                    } else {
+                        console.log(`Mapa de ${regionActual.nombre} ya disponible offline.`);
+                    }
+                };
+            }
+        }
+
+        function mostrarBannerSugerencia() {
+            const msg = `Hemos detectado que estás en la zona de <strong>${regionActual.nombre}</strong>. ¿Quieres descargar el mapa base optimizado (${regionActual.archivo_fake_size} MB) para carreteras y pueblos colindantes de ${regionActual.colindantes}?<br><br><i>Evitará que te quedes a ciegas en la montaña sin cobertura.</i>`;
+            document.getElementById('download-message').innerHTML = msg;
+            document.getElementById('download-banner').style.display = "block";
+        }
+
+        // --- 4. PROCESO DE DESCARGA Y ESCRITURA EN MEMORIA INTERNA ---
+        function iniciarDescargaProvincia() {
+            if (!regionActual) return;
+
+            document.getElementById('banner-actions').style.display = "none";
+            document.getElementById('p-container').style.display = "block";
+            
+            let progreso = 0;
+            const bar = document.getElementById('p-bar');
+            
+            // Simulación de descarga de datos binarios a alta velocidad
+            const interval = setInterval(() => {
+                progreso += 4;
+                bar.style.width = progreso + "%";
+                
+                if (progreso >= 100) {
+                    clearInterval(interval);
+                    
+                    // GUARDAR EN INDEXEDDB: Registramos que la provincia está salvada 100% offline
+                    const transaction = db.transaction(["mapas_provincias"], "readwrite");
+                    const store = transaction.objectStore("mapas_provincias");
+                    
+                    store.put({
+                        provincia: regionActual.nombre,
+                        fechaDescarga: new Date().toLocaleDateString(),
+                        estado: "completo",
+                        datos_mapa_mock: "Blob_Map_Data_Vector_Highways_Only" 
+                    });
+
+                    transaction.oncomplete = () => {
+                        document.getElementById('banner-title').innerText = "✅ ¡Listo para la ruta!";
+                        document.getElementById('download-message').innerText = `El mapa de ${regionActual.nombre} se ha guardado en el almacenamiento local del teléfono. Ya puedes desconectar los datos móviles.`;
+                        setTimeout(cerrarBanner, 4000);
+                    };
+                }
+            }, 100);
+        }
+
+        function cerrarBanner() {
+            document.getElementById('download-banner').style.display = "none";
+        }
+
+        // --- 5. INTERRUPTOR DE COBERTURA (ONLINE / OFFLINE) ---
+        function toggleNetwork() {
+            isOnline = !isOnline;
+            const badge = document.getElementById('status-badge');
+            
+            if (!isOnline) {
+                badge.innerText = "Modo Offline (Sin Cobertura)";
+                badge.style.background = "#ff3d00";
+                
+                // Comprobamos si tenemos el mapa offline en IndexedDB para dejarlo visible
+                const transaction = db.transaction(["mapas_provincias"], "readonly");
+                const store = transaction.objectStore("mapas_provincias");
+                const request = store.get(regionActual ? regionActual.nombre : "");
+                
+                request.onsuccess = () => {
+                    if (request.result) {
+                        alert("Simulación: Te has quedado sin cobertura, pero el mapa sigue operativo leyendo desde la memoria IndexedDB del móvil.");
+                    } else {
+                        alert("⚠️ ALERTA: Sin cobertura y NO descargaste el mapa previamente. Pantalla en blanco en entorno real.");
+                        // En un caso real, aquí el mapa de Leaflet fallaría al pedir nuevas teselas de internet
+                    }
+                };
+            } else {
+                badge.innerText = "Modo Online";
+                badge.style.background = "#00ff66";
+                badge.style.color = "#000";
+            }
+        }
+
+        // --- 6. ALGORITMO DE RUMBO Y CURVAS (ROADBOOK) ---
+        function getBearing(p1, p2) {
+            const lat1 = p1[0] * Math.PI / 180; const lat2 = p2[0] * Math.PI / 180;
+            const dLon = (p2[1] - p1[1]) * Math.PI / 180;
+            const y = Math.sin(dLon) * Math.cos(lat2);
+            const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+            return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+        }
+
+        function analizarProximaCurva(indiceActual, ruta) {
+            if (indiceActual >= ruta.length - 2) {
+                updateUI("↑", "Fin de ruta", "#fff");
+                return;
+            }
+            const rumboActual = getBearing(ruta[indiceActual], ruta[indiceActual + 1]);
+            const rumboSiguiente = getBearing(ruta[indiceActual + 1], ruta[indiceActual + 2]);
+
+            let diferencia = rumboSiguiente - rumboActual;
+            if (diferencia > 180) diferencia -= 360;
+            if (diferencia < -180) diferencia += 360;
+
+            if (Math.abs(diferencia) < 15) updateUI("↑", "Recta", "#00ff66");
+            else if (diferencia > 0) {
+                if (diferencia > 45) updateUI("➔ ➔", "Curva Cerrada Dcha", "#ff3d00");
+                else updateUI("↗", "Curva Derecha", "#ffb300");
+            } else {
+                if (diferencia < -45) updateUI("⬅ ⬅", "Curva Cerrada Izq", "#ff3d00");
+                else updateUI("↖", "Curva Izquierda", "#ffb300");
+            }
+        }
+
+        function updateUI(arrow, text, color) {
+            const arrowEl = document.getElementById('arrow-display');
+            const textEl = document.getElementById('instruction-text');
+            arrowEl.innerText = arrow; arrowEl.style.color = color; textEl.innerText = text;
+        }
+
+        function toggleSimulation() {
+            const btn = document.getElementById('btn-sim');
+            if (simInterval) {
+                clearInterval(simInterval); simInterval = null;
+                btn.innerText = "Simular Moto"; btn.classList.remove('active');
+            } else {
+                currentStep = 0;
+                btn.innerText = "Detener Moto"; btn.classList.add('active');
+                simInterval = setInterval(() => {
+                    if (currentStep < mockRoute.length) {
+                        const pos = mockRoute[currentStep];
+                        motoMarker.setLatLng(pos);
+                        map.panTo(pos);
+                        analizarProximaCurva(currentStep, mockRoute);
+                        currentStep++;
+                    } else {
+                        clearInterval(simInterval); simInterval = null;
+                        btn.innerText = "Simular Moto"; btn.classList.remove('active');
+                    }
+                }, 2000);
+            }
+        }
+
+        // Arrancar al cargar el archivo
+        window.onload = initDatabase;
+    </script>
+</body>
+</html>
