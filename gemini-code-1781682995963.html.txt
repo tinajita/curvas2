@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MotoNav - Navegador con Ruta Real</title>
+    
+    <link href="https://unpkg.com/maplibre-gl@4.3.2/dist/maplibre-gl.css" rel="stylesheet" />
+    
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        body, html {
+            height: 100%;
+            background-color: #0a0a0a;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        #navigator-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            position: relative;
+        }
+
+        /* BARRA SUPERIOR: Buscador y Estado de la Ruta */
+        #top-search-bar {
+            background: rgba(20, 20, 20, 0.92);
+            border-bottom: 2px solid #00ff66;
+            padding: 12px 15px;
+            z-index: 10;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+        }
+
+        .search-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        input th, input {
+            flex: 1;
+            background: #111;
+            border: 1px solid #444;
+            color: #fff;
+            padding: 12px 16px;
+            font-size: 16px;
+            border-radius: 25px;
+            outline: none;
+        }
+
+        input:focus {
+            border-color: #00ff66;
+        }
+
+        .btn-search {
+            background: #00ff66;
+            color: #000;
+            border: none;
+            padding: 0 20px;
+            font-size: 14px;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+
+        #route-info {
+            font-size: 18px;
+            font-weight: bold;
+            color: #fff;
+            margin-top: 8px;
+            display: none;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* EL MAPA */
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+            z-index: 1;
+        }
+
+        /* PANEL INFERIOR: Velocímetro */
+        #bottom-telemetry-bar {
+            height: 110px;
+            background: linear-gradient(to top, rgba(10,10,10,0.95) 60%, rgba(10,10,10,0));
+            z-index: 10;
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding: 20px;
+            pointer-events: none;
+        }
+
+        .speed-container {
+            display: flex;
+            align-items: baseline;
+            background: rgba(17, 17, 17, 0.9);
+            padding: 10px 20px;
+            border-radius: 16px;
+            border: 1px solid #222;
+            pointer-events: auto;
+        }
+
+        #speed-value {
+            font-size: 44px;
+            font-weight: 900;
+            color: #00ff66;
+            line-height: 1;
+        }
+
+        .speed-unit {
+            font-size: 14px;
+            color: #888;
+            margin-left: 6px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        #gps-status {
+            background: rgba(17, 17, 17, 0.9);
+            padding: 8px 14px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            color: #aaa;
+            border: 1px solid #222;
+            align-self: center;
+            pointer-events: auto;
+        }
+
+        /* Flecha de navegación estilizada */
+        .nav-arrow-marker {
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s ease-out;
+            filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.7));
+        }
+    </style>
+</head>
+<body>
+
+    <div id="navigator-container">
+        <div id="top-search-bar">
+            <div class="search-group">
+                <input type="text" id="destination-input" placeholder="Introduce destino (Ej: Ronda, Málaga)...">
+                <button class="btn-search" onclick="buscarYCalcularRuta()">Ir</button>
+            </div>
+            <div id="route-info">Calculando trazado...</div>
+        </div>
+
+        <div id="map"></div>
+
+        <div id="bottom-telemetry-bar">
+            <div class="speed-container">
+                <span id="speed-value">0</span>
+                <span class="speed-unit">km/h</span>
+            </div>
+            <div id="gps-status">Esperando GPS...</div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/maplibre-gl@4.3.2/dist/maplibre-gl.js"></script>
+
+    <script>
+        let map;
+        let arrowMarker;
+        let miPosicion = [-4.4214, 36.7213]; // Posición por defecto inicial (Málaga)
+        let lastValidBearing = 0;
+        let rutaActiva = false;
+
+        const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
+        const getBottomPadding = () => window.innerHeight * 0.35; // Desplazamiento al tercio inferior
+
+        function initNavigator() {
+            map = new maplibregl.Map({
+                container: 'map',
+                style: MAP_STYLE,
+                center: miPosicion, 
+                zoom: 16,                 
+                pitch: 55,                  
+                bearing: 0,
+                attributionControl: false,
+                padding: { top: 0, bottom: getBottomPadding(), left: 0, right: 0 }
+            });
+
+            map.on('load', () => {
+                configurarCapasRuta();
+                crearIconoNavegacion();
+                arrancarSeguimientoGPS();
+            });
+        }
+
+        // --- 1. CAPAS DE RESALTADO DE RUTA (LÍNEA DE DESTINO FIJA) ---
+        function configurarCapasRuta() {
+            map.addSource('route-source', {
+                type: 'geojson',
+                data: { type: 'FeatureCollection', features: [] }
+            });
+
+            // Trazado negro exterior para dar profundidad y aislamiento visual
+            map.addLayer({
+                id: 'route-casing',
+                type: 'line',
+                source: 'route-source',
+                layout: { 'line-join': 'round', 'line-cap': 'round' },
+                paint: {
+                    'line-color': '#000000',
+                    'line-width': 15,
+                    'line-opacity': 0.85
+                }
+            });
+
+            // Núcleo verde neón de alta visibilidad que dibuja el itinerario completo
+            map.addLayer({
+                id: 'route-core',
+                type: 'line',
+                source: 'route-source',
+                layout: { 'line-join': 'round', 'line-cap': 'round' },
+                paint: {
+                    'line-color': '#00ff66',
+                    'line-width': 8,
+                    'line-opacity': 0.95
+                }
+            });
+        }
+
+        function crearIconoNavegacion() {
+            const container = document.createElement('div');
+            container.className = 'nav-arrow-marker';
+            container.innerHTML = `
+                <svg width="42" height="42" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M50 5L90 90L50 70L10 90L50 5Z" fill="#ffffff" stroke="#00e5ff" stroke-width="6" stroke-linejoin="round"/>
+                </svg>
+            `;
+
+            arrowMarker = new maplibregl.Marker({ element: container })
+                .setLngLat(miPosicion)
+                .addTo(map);
+        }
+
+        // --- 2. ENLAZAR CON EL MOTOR DE RUTA Y BUSCADOR REAL ---
+        async function buscarYCalcularRuta() {
+            const query = document.getElementById('destination-input').value;
+            const infoText = document.getElementById('route-info');
+            if (!query) return;
+
+            infoText.style.display = "block";
+            infoText.innerText = "Buscando destino...";
+
+            try {
+                // Paso A: Geocodificar texto a Coordenadas (OpenStreetMap Nominatim)
+                const searchUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`;
+                const searchResponse = await fetch(searchUrl);
+                const searchData = await searchResponse.json();
+
+                if (searchData.length === 0) {
+                    infoText.innerText = "Destino no encontrado";
+                    return;
+                }
+
+                const destLon = parseFloat(searchData[0].lon);
+                const destLat = parseFloat(searchData[0].lat);
+                const nombreDestino = searchData[0].display_name.split(',')[0];
+
+                infoText.innerText = `Trazando ruta a: ${nombreDestino}...`;
+
+                // Paso B: Calcular ruta por carretera (OSRM Routing API)
+                const routeUrl = `https://router.project-osrm.org/route/v1/driving/${miPosicion[0]},${miPosicion[1]};${destLon},${destLat}?overview=full&geometries=geojson`;
+                const routeResponse = await fetch(routeUrl);
+                const routeData = await routeResponse.json();
+
+                if (!routeData.routes || routeData.routes.length === 0) {
+                    infoText.innerText = "Imposible calcular ruta por carretera";
+                    return;
+                }
+
+                // Paso C: Extraer la geometría de la carretera e inyectarla en el mapa
+                const geometriaRuta = routeData.routes[0].geometry;
+                
+                map.getSource('route-source').setData({
+                    type: 'FeatureCollection',
+                    features: [{
+                        type: 'Feature',
+                        geometry: geometriaRuta,
+                        properties: {}
+                    }]
+                });
+
+                infoText.innerText = `Ruta fijada hacia ${nombreDestino}`;
+                rutaActiva = true;
+
+                // Encuadre inicial de la ruta completa para que el piloto vea el mapa general
+                const coordinates = geometriaRuta.coordinates;
+                const bounds = coordinates.reduce((bounds, coord) => {
+                    return bounds.extend(coord);
+                }, new maplibregl.LngLatBounds(coordinates[0], coordinates[0]));
+
+                map.fitBounds(bounds, { padding: 80, duration: 1500 });
+
+                // A los 4 segundos, volvemos a bloquear la cámara en modo conducción sobre la moto
+                setTimeout(() => {
+                    if (rutaActiva) {
+                        map.easeTo({
+                            center: miPosicion,
+                            zoom: 16.5,
+                            bearing: lastValidBearing,
+                            pitch: 55,
+                            padding: { top: 0, bottom: getBottomPadding(), left: 0, right: 0 },
+                            duration: 1000
+                        });
+                    }
+                }, 4000);
+
+            } catch (error) {
+                console.error(error);
+                infoText.innerText = "Error de conexión con el servidor de mapas";
+            }
+        }
+
+        // --- 3. HARDWARE GPS DE SEGUIMIENTO EN TIEMPO REAL ---
+        function arrancarSeguimientoGPS() {
+            if (!navigator.geolocation) {
+                document.getElementById('gps-status').innerText = "GPS no soportado";
+                return;
+            }
+
+            navigator.geolocation.watchPosition(
+                (position) => {
+                    const lon = position.coords.longitude;
+                    const lat = position.coords.latitude;
+                    const velocidad = position.coords.speed ? Math.round(position.coords.speed * 3.6) : 0;
+                    
+                    miPosicion = [lon, lat]; // Actualizamos la posición global de la moto
+
+                    if (position.coords.heading !== null && position.coords.heading !== undefined) {
+                        lastValidBearing = position.coords.heading;
+                    }
+
+                    // Cuadro de telemetría inferior
+                    document.getElementById('speed-value').innerText = velocidad;
+                    document.getElementById('gps-status').innerText = `Satélites OK (±${Math.round(position.coords.accuracy)}m)`;
+
+                    // Posicionar flecha
+                    arrowMarker.setLngLat(miPosicion);
+
+                    // Rotar flecha física
+                    const arrowElement = document.querySelector('.nav-arrow-marker');
+                    if (arrowElement) {
+                        arrowElement.style.transform = `rotate(${lastValidBearing}deg)`;
+                    }
+
+                    // Centrar la cámara de navegación manteniendo el padding inferior en marcha
+                    // Solo auto-centra si no está en el encuadre general inicial de la ruta
+                    if (map.getZoom() > 14) {
+                        map.easeTo({
+                            center: miPosicion,
+                            bearing: lastValidBearing,
+                            padding: { top: 0, bottom: getBottomPadding(), left: 0, right: 0 },
+                            duration: 300,
+                            easing: (t) => t
+                        });
+                    }
+                },
+                (err) => {
+                    console.error(err);
+                    document.getElementById('gps-status').innerText = "Buscando señal cielo abierto...";
+                },
+                {
+                    enableHighAccuracy: true,
+                    maximumAge: 0,
+                    timeout: 5000
+                }
+            );
+        }
+
+        window.addEventListener('resize', () => {
+            if (map) map.setPadding({ top: 0, bottom: getBottomPadding(), left: 0, right: 0 });
+        });
+
+        window.onload = initNavigator;
+    </script>
+</body>
+</html>
