@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MotoNav Dashboard Pro</title>
+    
+    <link href="https://unpkg.com/maplibre-gl@4.3.2/dist/maplibre-gl.css" rel="stylesheet" />
+    
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        body, html {
+            height: 100%;
+            background-color: #0a0a0a;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        #navigator-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            position: relative;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+            z-index: 1;
+        }
+
+        /* CAPA SUPERIOR DE INTERFAZ */
+        #ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 15px;
+        }
+
+        /* BUSCADOR INICIAL */
+        #search-block {
+            background: rgba(20, 20, 20, 0.95);
+            border: 1px solid #333;
+            border-bottom: 2px solid #00ff66;
+            padding: 12px;
+            border-radius: 20px;
+            pointer-events: auto;
+            box-shadow: 0 4px 25px rgba(0,0,0,0.6);
+            display: flex;
+            gap: 10px;
+        }
+
+        #destination-input {
+            flex: 1;
+            background: #111;
+            border: 1px solid #444;
+            color: #fff;
+            padding: 12px 16px;
+            font-size: 16px;
+            border-radius: 25px;
+            outline: none;
+        }
+
+        #destination-input:focus { border-color: #00ff66; }
+
+        .btn-action {
+            background: #00ff66;
+            color: #000;
+            border: none;
+            padding: 0 22px;
+            font-size: 14px;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+
+        /* NUEVA PÍLDORA SUPERIOR DE GIRO AUTOMÁTICO */
+        #nav-pill-top {
+            display: none; /* Solo activo en ruta */
+            align-self: center;
+            background: rgba(15, 15, 15, 0.92);
+            border: 2px solid #00e5ff;
+            padding: 10px 18px;
+            border-radius: 25px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            pointer-events: auto;
+            align-items: center;
+            gap: 12px;
+            max-width: 90%;
+        }
+
+        #turn-icon-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+        }
+
+        #turn-instructions {
+            display: flex;
+            flex-direction: column;
+        }
+
+        #next-road-text {
+            font-size: 16px;
+            font-weight: 800;
+            color: #ffffff;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        #distance-to-turn-text {
+            font-size: 13px;
+            font-weight: bold;
+            color: #00e5ff;
+        }
+
+        .btn-close-route {
+            background: #ff3d00;
+            color: white;
+            border: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 11px;
+            margin-left: 5px;
+        }
+
+        /* BOTÓN FLOTANTE RECENTRAR */
+        #recenter-container {
+            position: absolute;
+            top: 100px;
+            right: 15px;
+            display: none;
+            pointer-events: auto;
+        }
+
+        .btn-recenter {
+            background: #00e5ff;
+            color: #000;
+            border: none;
+            padding: 10px 18px;
+            font-size: 12px;
+            font-weight: bold;
+            border-radius: 20px;
+            text-transform: uppercase;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            cursor: pointer;
+        }
+
+        /* TELEMETRÍA INFERIOR ADAPTADA */
+        #bottom-row {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 100%;
+        }
+
+        /* Info destino fijada debajo de la flecha de la moto */
+        #route-stats-pill {
+            display: none;
+            background: rgba(15, 15, 15, 0.92);
+            border: 1px solid #00ff66;
+            padding: 8px 18px;
+            border-radius: 20px;
+            pointer-events: auto;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+            align-items: center;
+            gap: 12px;
+            font-weight: bold;
+        }
+
+        .stat-metric {
+            font-size: 17px;
+            color: #fff;
+        }
+
+        .stat-metric span {
+            color: #00ff66;
+            font-weight: 900;
+        }
+
+        .stat-divider {
+            color: #444;
+            font-size: 16px;
+        }
+
+        .widgets-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            width: 100%;
+        }
+
+        .speed-pill {
+            display: flex;
+            align-items: baseline;
+            background: rgba(15, 15, 15, 0.9);
+            padding: 8px 18px;
+            border-radius: 20px;
+            border: 1px solid #222;
+            pointer-events: auto;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+
+        #speed-value {
+            font-size: 40px;
+            font-weight: 900;
+            color: #00ff66;
+            line-height: 1;
+        }
+
+        .speed-unit {
+            font-size: 13px;
+            color: #888;
+            margin-left: 5px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .gps-pill {
+            background: rgba(15, 15, 15, 0.9);
+            padding: 8px 14px;
+            border-radius: 15px;
+            font-size: 11px;
+            font-weight: bold;
+            color: #aaa;
+            border: 1px solid #222;
+            pointer-events: auto;
+        }
+
+        .nav-arrow-marker {
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.7));
+        }
+    </style>
+</head>
+<body>
+
+    <div id="navigator-container">
+        <div id="map"></div>
+
+        <div id="ui-overlay">
+            <div id="search-block">
+                <input type="text" id="destination-input" placeholder="¿A dónde vamos con la moto?...">
+                <button class="btn-action" onclick="fijarRutaDestino()">Ir</button>
+            </div>
+
+            <div id="nav-pill-top">
+                <div id="turn-icon-container">
+                    </div>
+                <div id="turn-instructions">
+                    <span id="next-road-text">Continuar ruta</span>
+                    <span id="distance-to-turn-text">-- m</span>
+                </div>
+                <button class="btn-close-route" onclick="cancelarRuta()">✕</button>
+            </div>
+
+            <div id="recenter-container">
+                <button class="btn-recenter" onclick="recenterManual()">✕ Recentrar</button>
+            </div>
+
+            <div id="bottom-row">
+                
+                <div style="display: flex; justify-content: center; width: 100%;">
+                    <div id="route-stats-pill">
+                        <div class="stat-metric" id="stat-distance">-- km</div>
+                        <div class="stat-divider">|</div>
+                        <div class="stat-metric" id="stat-time">-- min</div>
+                    </div>
+                </div>
+
+                <div class="widgets-container">
+                    <div class="speed-pill">
+                        <span id="speed-value">0</span>
+                        <span class="speed-unit">km/h</span>
+                    </div>
+                    <div class="gps-pill" id="gps-status">GPS: OK</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/maplibre-gl@4.3.2/dist/maplibre-gl.js"></script>
+
+    <script>
+        let map;
+        let arrowMarker;
+        let miPosicion = [-4.4214, 36.7213]; // Málaga base
+        let destinoCoors = null;
+        let lastValidBearing = 0;
+        
+        let mapaDesplazadoPorUsuario = false;
+        let autoRecenterTimer = null;
+        let rutaActiva = false;
+
+        const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
+        const getCenterOffset = () => [0, window.innerHeight * 0.22]; // Fija la flecha abajo
+
+        // Diccionario de SVGs de dirección para las curvas y giros
+        const ICONOS_MANIOBRA = {
+            izq: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00e5ff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>`,
+            der: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00e5ff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>`,
+            recto: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00ff66" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>`
+        };
+
+        function initNavigator() {
+            map = new maplibregl.Map({
+                container: 'map',
+                style: MAP_STYLE,
+                center: miPosicion, 
+                zoom: 16.5,                 
+                pitch: 60,                 
+                bearing: 0,
+                attributionControl: false
+            });
+
+            map.on('load', () => {
+                configurarCapasRuta();
+                crearIconoNavegacion();
+                arrancarSeguimientoGPS();
+                configurarEventosGestos();
+                setTimeout(() => { recenterManual(); }, 300);
+            });
+        }
+
+        function configurarEventosGestos() {
+            map.on('dragstart', () => {
+                mapaDesplazadoPorUsuario = true;
+                document.getElementById('recenter-container').style.display = 'block';
+                clearTimeout(autoRecenterTimer);
+            });
+            map.on('dragend', () => { arrancarTemporizadorRecentrando(); });
+        }
+
+        function arrancarTemporizadorRecentrando() {
+            clearTimeout(autoRecenterTimer);
+            autoRecenterTimer = setTimeout(() => { recenterManual(); }, 6000);
+        }
+
+        function recenterManual() {
+            mapaDesplazadoPorUsuario = false;
+            document.getElementById('recenter-container').style.display = 'none';
+            clearTimeout(autoRecenterTimer);
+            
+            map.easeTo({
+                center: miPosicion,
+                zoom: 16.5,
+                bearing: lastValidBearing,
+                pitch: 60,
+                offset: getCenterOffset(),
+                duration: 600
+            });
+        }
+
+        function configurarCapasRuta() {
+            map.addSource('route-source', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+            map.addLayer({
+                id: 'route-casing', type: 'line', source: 'route-source',
+                layout: { 'line-join': 'round', 'line-cap': 'round' },
+                paint: { 'line-color': '#000000', 'line-width': 16, 'line-opacity': 0.85 }
+            });
+            map.addLayer({
+                id: 'route-core', type: 'line', source: 'route-source',
+                layout: { 'line-join': 'round', 'line-cap': 'round' },
+                paint: { 'line-color': '#00ff66', 'line-width': 8, 'line-opacity': 0.95 }
+            });
+        }
+
+        function crearIconoNavegacion() {
+            const container = document.createElement('div');
+            container.className = 'nav-arrow-marker';
+            container.innerHTML = `
+                <svg width="42" height="42" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M50 5L90 90L50 70L10 90L50 5Z" fill="#ffffff" stroke="#00e5ff" stroke-width="6" stroke-linejoin="round"/>
+                </svg>
+            `;
+            arrowMarker = new maplibregl.Marker({ element: container }).setLngLat(miPosicion).addTo(map);
+        }
+
+        async function fijarRutaDestino() {
+            const query = document.getElementById('destination-input').value;
+            if (!query) return;
+
+            try {
+                const searchResponse = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
+                const searchData = await searchResponse.json();
+                if (searchData.length === 0) return;
+
+                destinoCoors = [parseFloat(searchData[0].lon), parseFloat(searchData[0].lat)];
+                rutaActiva = true;
+
+                document.getElementById('search-block').style.display = 'none';
+                document.getElementById('nav-pill-top').style.display = 'flex';
+                document.getElementById('route-stats-pill').style.display = 'flex';
+
+                actualizarRutaEnMarcha();
+                recenterManual();
+
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        // --- PROCESADOR DE RUTA, MANIOBRAS Y DISTANCIAS ---
+        async function actualizarRutaEnMarcha() {
+            if (!rutaActiva || !destinoCoors) return;
+
+            try {
+                // Añadimos &steps=true para pedir las maniobras de las próximas curvas a OSRM
+                const routeResponse = await fetch(`https://router.project-osrm.org/route/v1/driving/${miPosicion[0]},${miPosicion[1]};${destinoCoors[0]},${destinoCoors[1]}?overview=full&geometries=geojson&steps=true`);
+                const routeData = await routeResponse.json();
+                
+                if (!routeData.routes || routeData.routes.length === 0) return;
+
+                const dataRuta = routeData.routes[0];
+
+                // 1. Refrescar trazo neón
+                map.getSource('route-source').setData({
+                    type: 'FeatureCollection',
+                    features: [{ type: 'Feature', geometry: dataRuta.geometry, properties: {} }]
+                });
+
+                // 2. Panel Inferior: Distancia y Tiempo Restante del viaje total
+                const kms = (dataRuta.distance / 1000).toFixed(1);
+                document.getElementById('stat-distance').innerHTML = `<span>${kms}</span> KM`;
+
+                const totalMinutos = Math.round(dataRuta.duration / 60);
+                if (totalMinutos >= 60) {
+                    document.getElementById('stat-time').innerHTML = `<span>${Math.floor(totalMinutos / 60)}h ${totalMinutos % 60}m</span>`;
+                } else {
+                    document.getElementById('stat-time').innerHTML = `<span>${totalMinutos}</span> MIN`;
+                }
+
+                // 3. Panel Superior Extendido: Próxima Maniobra / Sentido de curva
+                const steps = dataRuta.legs[0].steps;
+                if (steps && steps.length > 1) {
+                    // El step[0] es donde estás; el tramo restante hasta el step[1] es la distancia al giro.
+                    const metrosParaGiro = Math.round(steps[0].distance); 
+                    const proximoGiro = steps[1]; // Contiene el tipo de curva/giro
+                    
+                    // Extraer nombre de la calle/carretera a la que entramos
+                    const nombreSiguienteVia = proximoGiro.name || proximoGiro.ref || "Siguiente Vía";
+                    document.getElementById('next-road-text').innerText = nombreSiguienteVia;
+
+                    // Formatear la distancia al giro
+                    if (metrosParaGiro >= 1000) {
+                        document.getElementById('distance-to-turn-text').innerText = `A ${(metrosParaGiro / 1000).toFixed(1)} km`;
+                    } else {
+                        document.getElementById('distance-to-turn-text').innerText = `A ${metrosParaGiro} m`;
+                    }
+
+                    // Evaluar el tipo de modificador para pintar la flecha correspondiente
+                    const modifier = proximoGiro.maneuver.modifier || '';
+                    const iconContainer = document.getElementById('turn-icon-container');
+                    
+                    if (modifier.includes('left')) {
+                        iconContainer.innerHTML = ICONOS_MANIOBRA.izq;
+                    } else if (modifier.includes('right')) {
+                        iconContainer.innerHTML = ICONOS_MANIOBRA.der} else {
+                        iconContainer.innerHTML = ICONOS_MANIOBRA.recto;
+                    }
+                }
+
+            } catch (e) {
+                console.error("Error en telemetría de ruta:", e);
+            }
+        }
+
+        function cancelarRuta() {
+            rutaActiva = false;
+            destinoCoors = null;
+            map.getSource('route-source').setData({ type: 'FeatureCollection', features: [] });
+            document.getElementById('nav-pill-top').style.display = 'none';
+            document.getElementById('route-stats-pill').style.display = 'none';
+            document.getElementById('search-block').style.display = 'flex';
+            document.getElementById('destination-input').value = '';
+            recenterManual();
+        }
+
+        function arrancarSeguimientoGPS() {
+            if (!navigator.geolocation) return;
+
+            navigator.geolocation.watchPosition(
+                (position) => {
+                    const lon = position.coords.longitude;
+                    const lat = position.coords.latitude;
+                    const velocidad = position.coords.speed ? Math.round(position.coords.speed * 3.6) : 0;
+                    
+                    miPosicion = [lon, lat];
+
+                    if (position.coords.heading !== null && position.coords.heading !== undefined) {
+                        lastValidBearing = position.coords.heading;
+                    }
+
+                    document.getElementById('speed-value').innerText = velocidad;
+                    document.getElementById('gps-status').innerText = `SAT OK (±${Math.round(position.coords.accuracy)}m)`;
+
+                    arrowMarker.setLngLat(miPosicion);
+
+                    const arrowElement = document.querySelector('.nav-arrow-marker');
+                    if (arrowElement) {
+                        arrowElement.style.transform = `rotate(${lastValidBearing}deg)`;
+                    }
+
+                    if (rutaActiva) {
+                        actualizarRutaEnMarcha();
+                    }
+
+                    if (!mapaDesplazadoPorUsuario) {
+                        map.easeTo({
+                            center: miPosicion,
+                            bearing: lastValidBearing,
+                            offset: getCenterOffset(),
+                            duration: 250,
+                            easing: (t) => t
+                        });
+                    }
+                },
+                (err) => console.error(err),
+                { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
+            );
+        }
+
+        window.onload = initNavigator;
+    </script>
+</body>
+</html>
