@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>MotoNav Roadbook Pro</title>
+    
+    <link href="https://unpkg.com/maplibre-gl@4.3.2/dist/maplibre-gl.css" rel="stylesheet" />
+    
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        
+        body, html { height: 100dvh; background-color: #050505; color: #fff; overflow: hidden; }
+        #navigator-container { display: flex; flex-direction: column; height: 100dvh; position: relative; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
+
+        /* ==========================================
+           FASE 1: SELECTOR DE REGIONES (PANTALLA COMPLETA)
+           ========================================== */
+        #setup-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100dvh;
+            background: radial-gradient(circle at center, #0f111a 0%, #050508 100%);
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 24px;
+            padding-top: calc(env(safe-area-inset-top, 20px) + 10px);
+            overflow-y: auto;
+        }
+
+        .setup-card {
+            background: rgba(20, 22, 33, 0.9);
+            border: 1px solid #1f2438;
+            border-top: 4px solid #00e5ff;
+            padding: 25px 20px;
+            border-radius: 24px;
+            max-width: 480px;
+            width: 100%;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.7);
+            margin-bottom: 30px;
+        }
+
+        .setup-logo { font-size: 26px; font-weight: 900; letter-spacing: -1px; color: #fff; text-align: center; margin-bottom: 5px; }
+        .setup-logo span { color: #00ff66; }
+        .setup-subtitle { font-size: 13px; color: #7e8494; text-align: center; margin-bottom: 20px; line-height: 1.4; }
+
+        /* Selectores de Región */
+        .selector-group { display: flex; flex-direction: column; gap: 12px; margin-bottom: 15px; text-align: left; }
+        .selector-group label { font-size: 11px; font-weight: bold; color: #00e5ff; text-transform: uppercase; letter-spacing: 1px; padding-left: 5px; }
+        
+        .custom-select {
+            background: #0b0d16;
+            border: 1px solid #262c42;
+            color: #fff;
+            padding: 14px;
+            font-size: 15px;
+            border-radius: 14px;
+            outline: none;
+            width: 100%;
+            cursor: pointer;
+            -webkit-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2300e5ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            background-size: 16px;
+        }
+        .custom-select:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .action-container { margin-top: 20px; text-align: center; }
+        .btn-setup-load {
+            display: inline-block;
+            background: #00ff66;
+            color: #000;
+            font-size: 14px;
+            font-weight: bold;
+            padding: 16px 28px;
+            border-radius: 30px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 8px 25px rgba(0,255,102,0.2);
+            transition: transform 0.1s ease, background 0.2s ease;
+            width: 100%;
+            border: none;
+        }
+        .btn-setup-load:disabled { background: #333; color: #666; box-shadow: none; cursor: not-allowed; }
+        .btn-setup-load:not(:disabled):active { transform: scale(0.98); }
+
+        /* ==========================================
+           FASE 2: INTERFAZ DE NAVEGACIÓN CAPA OVERLAY
+           ========================================== */
+        #ui-overlay { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            right: 0; 
+            bottom: 0; 
+            z-index: 10; 
+            pointer-events: none; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: space-between; 
+            padding: 14px;
+            padding-top: calc(env(safe-area-inset-top, 12px) + 4px);
+            padding-bottom: calc(env(safe-area-inset-bottom, 12px) + 38px); 
+        }
+
+        #search-block { 
+            background: rgba(15, 15, 15, 0.96); 
+            border: 1px solid #222; 
+            border-bottom: 3px solid #00ff66; 
+            padding: 12px; 
+            border-radius: 25px; 
+            pointer-events: auto; 
+            box-shadow: 0 6px 30px rgba(0,0,0,0.8); 
+            display: flex; 
+            gap: 10px; 
+            width: 100%;
+            margin-top: 10px; 
+        }
+        #destination-input { flex: 1; background: #111; border: 1px solid #333; color: #fff; padding: 14px 18px; font-size: 16px; border-radius: 25px; outline: none; }
+        #destination-input:focus { border-color: #00ff66; }
+        .btn-action { background: #00ff66; color: #000; border: none; padding: 0 25px; font-size: 14px; font-weight: bold; border-radius: 25px; cursor: pointer; text-transform: uppercase; }
+        
+        /* HUD VISIÓN PERIFÉRICA SUPERIOR */
+        #hud-top-danger-meter {
+            width: 100%;
+            height: 22vh;
+            background: linear-gradient(to bottom, rgba(15,15,15,0.98) 65%, rgba(10,10,10,0.4) 85%, rgba(0,0,0,0));
+            display: none; 
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            padding: 10px 20px;
+            border-radius: 0 0 22px 22px;
+        }
+        #danger-chevrons-container { display: flex; align-items: center; justify-content: center; gap: 8px; height: 70px; }
+        .danger-chevron { width: 52px; height: 70px; filter: drop-shadow(0 0 12px rgba(0,0,0,0.9)); }
+        #hud-curve-distance { font-size: 56px; font-weight: 900; color: #ffffff; letter-spacing: -2px; line-height: 1; text-shadow: 0 4px 12px rgba(0,0,0,1); }
+
+        /* BOTÓN RECENTRAR FLOTANTE */
+        #recenter-container { position: absolute; top: 25vh; right: 15px; display: none; pointer-events: auto; }
+        .btn-recenter { background: #00e5ff; color: #000; border: none; padding: 10px 18px; font-size: 12px; font-weight: bold; border-radius: 20px; text-transform: uppercase; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+
+        /* INTERFAZ INFERIOR ELEVADA ANTI-SAFARI */
+        #hud-bottom-row { display: flex; justify-content: space-between; align-items: flex-end; width: 100%; }
+
+        /* IZQUIERDA: VELOCÍMETRO */
+        #panel-left-telemetry { display: flex; flex-direction: column; gap: 10px; pointer-events: auto; }
+        .speed-pill { display: flex; align-items: baseline; background: rgba(10, 10, 10, 0.95); padding: 10px 24px; border-radius: 22px; border: 1px solid #252525; box-shadow: 0 6px 20px rgba(0,0,0,0.8); width: fit-content; }
+        #speed-value { font-size: 46px; font-weight: 900; color: #00ff66; line-height: 1; }
+        .speed-unit { font-size: 13px; color: #888; margin-left: 6px; font-weight: bold; text-transform: uppercase; }
+
+        #trip-totals-pill { display: none; background: rgba(15, 15, 15, 0.95); border: 1px solid #252525; padding: 10px 18px; border-radius: 18px; box-shadow: 0 6px 20px rgba(0,0,0,0.7); font-weight: bold; font-size: 16px; color: #fff; gap: 12px; }
+        #trip-totals-pill span { color: #00ff66; font-weight: 900; }
+
+        /* DERECHA: PRÓXIMA VÍA */
+        #panel-right-street { display: none; flex-direction: column; align-items: flex-end; pointer-events: auto; max-width: 48%; }
+        .street-pill { background: rgba(15, 15, 15, 0.95); border: 2px solid #00e5ff; padding: 12px 18px; border-radius: 18px; box-shadow: 0 6px 20px rgba(0,0,0,0.8); display: flex; align-items: center; gap: 12px; }
+        #next-street-name { font-size: 15px; font-weight: 800; color: #ffffff; text-transform: uppercase; text-align: right; letter-spacing: 0.4px; }
+        .btn-close-route { background: #ff3d00; color: white; border: none; width: 28px; height: 28px; border-radius: 50%; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+        .nav-arrow-marker { width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0px 6px 10px rgba(0,0,0,0.9)); }
+
+        #gps-alert-banner { position: absolute; top: 20px; left: 20px; right: 20px; background: #ff3d00; color: white; padding: 15px; border-radius: 12px; text-align: center; font-weight: bold; z-index: 999; display: none; box-shadow: 0 4px 20px rgba(0,0,0,0.5); pointer-events: auto; }
+        #offline-alert-banner { position: absolute; top: 20px; left: 20px; right: 20px; background: #ffb300; color: #000; padding: 12px; border-radius: 12px; text-align: center; font-weight: bold; z-index: 998; display: none; box-shadow: 0 4px 20px rgba(0,0,0,0.5); pointer-events: auto; }
+
+        @media (orientation: landscape) {
+            #ui-overlay { padding-top: env(safe-area-inset-top, 4px); padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 32px); }
+            #hud-top-danger-meter { height: 52px; flex-direction: row; justify-content: space-between; padding: 0 40px; border-radius: 0 0 14px 14px; }
+            #danger-chevrons-container { height: 38px; gap: 12px; }
+            .danger-chevron { width: 26px; height: 38px; }
+            #hud-curve-distance { font-size: 34px; }
+            #recenter-container { top: 65px; }
+            #hud-bottom-row { align-items: center; }
+            #panel-left-telemetry { flex-direction: row; align-items: center; gap: 12px; }
+            .speed-pill { padding: 6px 16px; }
+            #speed-value { font-size: 32px; }
+            #trip-totals-pill { padding: 8px 14px; font-size: 14px; }
+            .street-pill { padding: 8px 14px; }
+            #next-street-name { font-size: 13px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="setup-screen">
+        <div class="setup-card">
+            <h1 class="setup-logo">MOTONAV<span>PRO</span></h1>
+            <p class="setup-subtitle">Selecciona tu zona de ruta para inyectar el mapa local sin cobertura.</p>
+            
+            <div class="selector-group">
+                <label for="ccaa-select">Comunidad Autónoma</label>
+                <select id="ccaa-select" class="custom-select" onchange="actualizarProvincias()">
+                    <option value="" disabled selected>Selecciona Región...</option>
+                    <option value="andalucia">Andalucía</option>
+                    <option value="aragon">Aragón</option>
+                    <option value="asturias">Principado de Asturias</option>
+                    <option value="baleares">Islas Baleares</option>
+                    <option value="canarias">Canarias</option>
+                    <option value="cantabria">Cantabria</option>
+                    <option value="castillalamancha">Castilla-La Mancha</option>
+                    <option value="castillayleon">Castilla y León</option>
+                    <option value="cataluna">Cataluña</option>
+                    <option value="valencia">Comunidad Valenciana</option>
+                    <option value="extremadura">Extremadura</option>
+                    <option value="galicia">Galicia</option>
+                    <option value="madrid">Comunidad de Madrid</option>
+                    <option value="murcia">Región de Murcia</option>
+                    <option value="navarra">Comunidad Foral de Navarra</option>
+                    <option value="paisvasco">País Vasco</option>
+                    <option value="larioja">La Rioja</option>
+                </select>
+            </div>
+
+            <div class="selector-group">
+                <label for="provincia-select">Provincia / Mapa de Destino</label>
+                <select id="provincia-select" class="custom-select" disabled onchange="validarSeleccion()">
+                    <option value="" disabled selected>Selecciona primero región...</option>
+                </select>
+            </div>
+
+            <div class="action-container">
+                <label id="btn-trigger-label" for="map-file-input" class="btn-setup-load" style="display:none;">📁 Abrir Archivo Seleccionado</label>
+                <button id="btn-dummy-visual" class="btn-setup-load" disabled onclick="alert('Por favor, selecciona una provincia primero.')">Selecciona una ubicación</button>
+                <input type="file" id="map-file-input" accept=".pmtiles" style="display: none;">
+            </div>
+        </div>
+    </div>
+
+    <div id="gps-alert-banner" onclick="this.style.display='none'">
+        ⚠️ GPS sin precisión. Si usas Chrome en iOS, ve a Ajustes del iPhone -> Chrome -> Localización -> Activa "Ubicación exacta".
+    </div>
+
+    <div id="offline-alert-banner" onclick="this.style.display='none'">
+        ℹ️ Modo offline activo. Usando datos de ruta en caché y mapas locales.
+    </div>
+
+    <div id="navigator-container">
+        <div id="map"></div>
+
+        <div id="ui-overlay">
+            
+            <div id="search-block">
+                <input type="text" id="destination-input" placeholder="¿A dónde vamos con la moto?...">
+                <button class="btn-action" onclick="fijarRutaDestino()">Ir</button>
+            </div>
+
+            <div id="hud-top-danger-meter">
+                <div id="danger-chevrons-container"></div>
+                <div id="hud-curve-distance">-- m</div>
+            </div>
+
+            <div id="recenter-container">
+                <button class="btn-recenter" onclick="recenterManual()">✕ Recentrar</button>
+            </div>
+
+            <div id="hud-bottom-row">
+                <div id="panel-left-telemetry">
+                    <div class="speed-pill">
+                        <span id="speed-value">0</span>
+                        <span class="speed-unit">km/h</span>
+                    </div>
+                    <div id="trip-totals-pill">
+                        <div id="total-distance-display">-- KM</div>
+                        <div style="color: #444;">|</div>
+                        <div id="total-time-display">-- MIN</div>
+                    </div>
+                </div>
+                
+                <div id="panel-right-street">
+                    <div class="street-pill">
+                        <span id="next-street-name">Ruta</span>
+                        <button class="btn-close-route" onclick="cancelarRuta()">✕</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/maplibre-gl@4.3.2/dist/maplibre-gl.js"></script>
+    <script src="https://unpkg.com/pmtiles@3.2.0/dist/pmtiles.js"></script>
+
+    <script>
+        let map;
+        let arrowMarker;
+        let miPosicion = [-4.4214, 36.7213]; // Base Málaga por defecto
+        let destinoCoors = null;
+        let lastValidBearing = 0;
+        let mapaDesplazadoPorUsuario = false;
+        let autoRecenterTimer = null;
+        let rutaActiva = false;
+        let cacheRutaLocal = null; 
+        let localPMTilesInstance = null;
+
+        // DICCIONARIO DE PROVINCIAS POR CCAA
+        const baseProvincias = {
+            andalucia: ["Almería", "Cádiz", "Córdoba", "Granada", "Huelva", "Jaén", "Málaga", "Sevilla"],
+            aragon: ["Huesca", "Teruel", "Zaragoza"],
+            asturias: ["Asturias (Mapa Único)"],
+            baleares: ["Islas Baleares (Mapa Único)"],
+            canarias: ["Las Palmas", "Santa Cruz de Tenerife"],
+            cantabria: ["Cantabria (Mapa Único)"],
+            castillalamancha: ["Albacete", "Ciudad Real", "Cuenca", "Guadalajara", "Toledo"],
+            castillayleon: ["Ávila", "Burgos", "León", "Palencia", "Salamanca", "Segovia", "Soria", "Valladolid", "Zamora"],
+            cataluna: ["Barcelona", "Girona", "Lleida", "Tarragona"],
+            valencia: ["Alicante", "Castellón", "Valencia"],
+            extremadura: ["Badajoz", "Cáceres"],
+            galicia: ["A Coruña", "Lugo", "Ourense", "Pontevedra"],
+            madrid: ["Madrid (Mapa Único)"],
+            murcia: ["Murcia (Mapa Único)"],
+            navarra: ["Navarra (Mapa Único)"],
+            paisvasco: ["Álava", "Bizkaia", "Gipuzkoa"],
+            larioja: ["La Rioja (Mapa Único)"]
+        };
+
+        function actualizarProvincias() {
+            const ccaa = document.getElementById("ccaa-select").value;
+            const provSelect = document.getElementById("provincia-select");
+            
+            provSelect.innerHTML = '<option value="" disabled selected>Selecciona Provincia...</option>';
+            
+            if (baseProvincias[ccaa]) {
+                baseProvincias[ccaa].forEach(prov => {
+                    let opt = document.createElement("option");
+                    opt.value = prov.toLowerCase().replace(/[\s()]/g, "");
+                    opt.innerText = prov;
+                    provSelect.appendChild(opt);
+                });
+                provSelect.disabled = false;
+            }
+            validarSeleccion();
+        }
+
+        function validarSeleccion() {
+            const provSelect = document.getElementById("provincia-select");
+            const btnLabel = document.getElementById("btn-trigger-label");
+            const btnDummy = document.getElementById("btn-dummy-visual");
+
+            if (provSelect.value) {
+                // Al elegir provincia, transformamos visualmente el input de archivos en el botón activo
+                btnDummy.style.display = "none";
+                btnLabel.style.display = "inline-block";
+                btnLabel.innerText = `📁 Cargar mapa de ${provSelect.options[provSelect.selectedIndex].text}`;
+            } else {
+                btnDummy.style.display = "inline-block";
+                btnLabel.style.display = "none";
+            }
+        }
+
+        // PROTOCOLO MAPLIBRE VECTORIAL LOCAL
+        maplibregl.addProtocol("pmtiles-local", async (request) => {
+            if (!localPMTilesInstance) return { data: new ArrayBuffer(0) };
+            const match = request.url.match(/tile\/(\d+)\/(\d+)\/(\d+)/);
+            if (!match) return { data: new ArrayBuffer(0) };
+            
+            const z = parseInt(match[1], 10);
+            const x = parseInt(match[2], 10);
+            const y = parseInt(match[3], 10);
+            
+            try {
+                const response = await localPMTilesInstance.getZxy(z, x, y);
+                if (response && response.data) return { data: response.data };
+            } catch (err) {
+                console.error("Error leyendo mapa offline local:", err);
+            }
+            return { data: new ArrayBuffer(0) };
+        });
+
+        const OFFLINE_PMTILES_STYLE = {
+            "version": 8,
+            "sources": {
+                "osm-local": {
+                    "type": "vector",
+                    "tiles": ["pmtiles-local://tile/{z}/{x}/{y}"],
+                    "minzoom": 0,
+                    "maxzoom": 14,
+                    "attribution": "© OpenStreetMap contributors"
+                }
+            },
+            "layers": [
+                { "id": "background", "type": "background", "paint": { "background-color": "#0a0a0f" } },
+                { "id": "agua", "type": "fill", "source": "osm-local", "source-layer": "water", "paint": { "fill-color": "#0d1b2a" } },
+                { "id": "naturaleza", "type": "fill", "source": "osm-local", "source-layer": "landuse", "filter": ["in", "class", "nature", "forest", "park"], "paint": { "fill-color": "#0b1610", "fill-opacity": 0.7 } },
+                { "id": "vias-secundarias", "type": "line", "source": "osm-local", "source-layer": "roads", "filter": ["not-in", "class", "motorway", "trunk", "primary", "secondary"], "paint": { "line-color": "#1f1f24", "line-width": 1.2 } },
+                { "id": "vias-principales", "type": "line", "source": "osm-local", "source-layer": "roads", "filter": ["in", "class", "motorway", "trunk", "primary", "secondary"], "paint": { "line-color": "#3a3a42", "line-width": 2.8 } },
+                { "id": "etiquetas-pueblos", "type": "symbol", "source": "osm-local", "source-layer": "places", "layout": { "text-field": "{name}", "text-size": 12 }, "paint": { "text-color": "#7a7a85" } }
+            ]
+        };
+
+        const CONFIG_PELIGRO = {
+            low: { color: '#00ff66', paneles: 1, fondo: 'linear-gradient(to bottom, rgba(0, 50, 15, 0.98) 65%, rgba(5, 20, 5, 0.3) 85%, rgba(0,0,0,0))' },
+            medium: { color: '#ffb300', paneles: 2, fondo: 'linear-gradient(to bottom, rgba(80, 48, 0, 0.98) 65%, rgba(20, 12, 0, 0.3) 85%, rgba(0,0,0,0))' },
+            high: { color: '#ff3d00', paneles: 3, fondo: 'linear-gradient(to bottom, rgba(120, 6, 6, 0.98) 65%, rgba(35, 2, 2, 0.3) 85%, rgba(0,0,0,0))' }
+        };
+
+        function initMapEngine() {
+            map = new maplibregl.Map({ 
+                container: 'map', 
+                style: OFFLINE_PMTILES_STYLE, 
+                center: miPosicion, 
+                zoom: 16.8, 
+                pitch: 62, 
+                bearing: 0, 
+                attributionControl: false 
+            });
+
+            map.on('load', () => { 
+                configurarCapasRuta(); 
+                crearIconoNavegacion(); 
+                arrancarSeguimientoGPS(); 
+                configurarEventosGestos(); 
+                
+                // Cierre de la Fase 1
+                document.getElementById('setup-screen').style.display = 'none';
+                
+                map.resize();
+                setTimeout(recenterManual, 200); 
+            });
+
+            window.addEventListener('resize', () => { if (map) map.setOffset(getCenterOffset()); });
+        }
+
+        const getCenterOffset = () => [0, window.innerHeight * (window.innerHeight > window.innerWidth ? 0.16 : 0.04)];
+
+        // CAPTURA DEL ARCHIVO LOCAL SELECCIONADO POR EL USUARIO
+        document.getElementById('map-file-input').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            localPMTilesInstance = new pmtiles.PMTiles(new pmtiles.pmtiles.FileSource(file));
+            initMapEngine();
+        });
+
+        function configurarEventosGestos() {
+            map.on('dragstart', () => { mapaDesplazadoPorUsuario = true; document.getElementById('recenter-container').style.display = 'block'; clearTimeout(autoRecenterTimer); });
+            map.on('dragend', () => { clearTimeout(autoRecenterTimer); autoRecenterTimer = setTimeout(recenterManual, 6000); });
+        }
+
+        function recenterManual() {
+            mapaDesplazadoPorUsuario = false;
+            document.getElementById('recenter-container').style.display = 'none';
+            clearTimeout(autoRecenterTimer);
+            map.easeTo({ center: miPosicion, zoom: 16.8, bearing: lastValidBearing, pitch: 62, offset: getCenterOffset(), duration: 600 });
+        }
+
+        function configurarCapasRuta() {
+            map.addSource('route-source', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+            map.addLayer({ id: 'route-casing', type: 'line', source: 'route-source', layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': '#000000', 'line-width': 16, 'line-opacity': 0.85 } });
+            map.addLayer({ id: 'route-core', type: 'line', source: 'route-source', layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': '#00ff66', 'line-width': 8, 'line-opacity': 0.95 } });
+        }
+
+        function crearIconoNavegacion() {
+            const container = document.createElement('div');
+            container.className = 'nav-arrow-marker';
+            container.innerHTML = `<svg width="45" height="45" viewBox="0 0 100 100" fill="none"><path d="M50 5L90 90L50 70L10 90L50 5Z" fill="#ffffff" stroke="#00e5ff" stroke-width="6" stroke-linejoin="round"/></svg>`;
+            arrowMarker = new maplibregl.Marker({ element: container }).setLngLat(miPosicion).addTo(map);
+        }
+
+        async function fijarRutaDestino() {
+            const query = document.getElementById('destination-input').value;
+            if (!query) return;
+            try {
+                const searchResponse = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
+                const searchData = await searchResponse.json();
+                if (searchData.length === 0) return;
+                destinoCoors = [parseFloat(searchData[0].lon), parseFloat(searchData[0].lat)];
+                rutaActiva = true;
+                
+                document.getElementById('search-block').style.display = 'none';
+                document.getElementById('hud-top-danger-meter').style.display = 'flex';
+                document.getElementById('trip-totals-pill').style.display = 'flex';
+                document.getElementById('panel-right-street').style.display = 'flex';
+                
+                actualizarRutaEnMarcha();
+                recenterManual();
+            } catch (error) { 
+                alert("Fallo de red al procesar el destino. Fíjalo antes de adentrarte en zonas sin cobertura.");
+            }
+        }
+
+        async function actualizarRutaEnMarcha() {
+            if (!rutaActiva || !destinoCoors) return;
+            
+            let dataRuta = null;
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+            try {
+                const routeResponse = await fetch(`https://router.project-osrm.org/route/v1/driving/${miPosicion[0]},${miPosicion[1]};${destinoCoors[0]},${destinoCoors[1]}?overview=full&geometries=geojson&steps=true`, { signal: controller.signal });
+                clearTimeout(timeoutId);
+                const routeData = await routeResponse.json();
+                
+                if (routeData.routes && routeData.routes.length > 0) {
+                    dataRuta = routeData.routes[0];
+                    cacheRutaLocal = dataRuta;
+                    document.getElementById('offline-alert-banner').style.display = 'none';
+                }
+            } catch (e) {
+                clearTimeout(timeoutId);
+                if (cacheRutaLocal) {
+                    dataRuta = cacheRutaLocal;
+                    document.getElementById('offline-alert-banner').style.display = 'block';
+                } else {
+                    return; 
+                }
+            }
+
+            if (!dataRuta || !map.getSource('route-source')) return;
+
+            map.getSource('route-source').setData({ type: 'FeatureCollection', features: [{ type: 'Feature', geometry: dataRuta.geometry, properties: {} }] });
+            
+            const kms = (dataRuta.distance / 1000).toFixed(1);
+            document.getElementById('total-distance-display').innerHTML = `<span>${kms}</span> KM`;
+            const totalMinutos = Math.round(dataRuta.duration / 60);
+            if (totalMinutos >= 60) { 
+                document.getElementById('total-time-display').innerHTML = `<span>${Math.floor(totalMinutos / 60)}h ${totalMinutos % 60}m</span>`; 
+            } else { 
+                document.getElementById('total-time-display').innerHTML = `<span>${totalMinutos}</span> MIN`; 
+            }
+
+            const steps = dataRuta.legs[0].steps;
+            if (steps && steps.length > 1) {
+                const metrosRealesGiro = Math.round(steps[0].distance); 
+                const proximoGiro = steps[1];
+                document.getElementById('next-street-name').innerText = proximoGiro.name || proximoGiro.ref || "Tramo Continuo";
+                document.getElementById('hud-curve-distance').innerText = cuantificarMetrosCurva(metrosRealesGiro);
+
+                const modifier = proximoGiro.maneuver.modifier || '';
+                let direccion = 'recto';
+                if (modifier.includes('left')) direccion = 'izq';
+                if (modifier.includes('right')) direccion = 'der';
+
+                let peligrosidad = 'low'; 
+                const maneuverType = proximoGiro.maneuver.type;
+
+                if (motos_danger_types_medium.includes(maneuverType) || motos_danger_modifiers_medium.includes(modifier)) peligrosidad = 'medium';
+                if (motos_danger_modifiers_high.includes(modifier)) peligrosidad = 'high';
+
+                renderizarHUDPeligro(direccion, peligrosidad);
+            }
+        }
+
+        const motos_danger_types_medium = ['turn', 'on ramp'];
+        const motos_danger_modifiers_medium = ['slight left', 'slight right', 'left', 'right'];
+        const motos_danger_modifiers_high = ['sharp left', 'sharp right', 'uturn'];
+
+        function cuantificarMetrosCurva(metros) {
+            if (metros <= 25) return "25 m";
+            if (metros <= 50) return "50 m";
+            if (metros <= 100) return "100 m";
+            if (metros <= 150) return "150 m";
+            return (Math.round(metros / 50) * 50) + " m";
+        }
+
+        function renderizarHUDPeligro(direccion, peligrosidad) {
+            const hudTop = document.getElementById('hud-top-danger-meter');
+            const container = document.getElementById('danger-chevrons-container');
+            container.innerHTML = ''; 
+
+            const config = CONFIG_PELIGRO[peligrosidad] || CONFIG_PELIGRO.low;
+            hudTop.style.background = config.fondo;
+
+            const scaleX = (direccion === 'izq') ? -1 : 1;
+            const svgChevron = `<svg class="danger-chevron" style="transform: scaleX(${scaleX});" viewBox="0 0 24 24" fill="none"><path d="M10 5L17 12L10 19" stroke="${config.color}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+            for (let i = 0; i < config.paneles; i++) { container.innerHTML += svgChevron; }
+        }
+
+        function cancelarRuta() { 
+            rutaActiva = false; 
+            destinoCoors = null; 
+            cacheRutaLocal = null; 
+            if (map.getSource('route-source')) map.getSource('route-source').setData({ type: 'FeatureCollection', features: [] }); 
+            document.getElementById('hud-top-danger-meter').style.display = 'none'; 
+            document.getElementById('trip-totals-pill').style.display = 'none'; 
+            document.getElementById('panel-right-street').style.display = 'none'; 
+            document.getElementById('offline-alert-banner').style.display = 'none'; 
+            document.getElementById('search-block').style.display = 'flex'; 
+            document.getElementById('destination-input').value = ''; 
+            recenterManual(); 
+        }
+
+        function arrancarSeguimientoGPS() {
+            if (!navigator.geolocation) return;
+            
+            navigator.geolocation.watchPosition((position) => {
+                document.getElementById('gps-alert-banner').style.display = 'none';
+
+                const lon = position.coords.longitude;
+                const lat = position.coords.latitude;
+                const velocidad = position.coords.speed ? Math.round(position.coords.speed * 3.6) : 0;
+                
+                miPosicion = [lon, lat];
+                if (position.coords.heading !== null && position.coords.heading !== undefined) lastValidBearing = position.coords.heading;
+                
+                document.getElementById('speed-value').innerText = velocidad;
+                if (arrowMarker) arrowMarker.setLngLat(miPosicion);
+                
+                const arrowElement = document.querySelector('.nav-arrow-marker');
+                if (arrowElement) arrowElement.style.transform = `rotate(${lastValidBearing}deg)`;
+                if (rutaActiva) actualizarRutaEnMarcha();
+                
+                if (!mapaDesplazadoPorUsuario) { 
+                    map.easeTo({ center: miPosicion, bearing: lastValidBearing, offset: getCenterOffset(), duration: 280, easing: (t) => t }); 
+                }
+            }, (err) => {
+                console.error("Error de adquisición GPS:", err);
+                document.getElementById('gps-alert-banner').style.display = 'block';
+            }, { 
+                enableHighAccuracy: true, 
+                maximumAge: 3000,  
+                timeout: 15000     
+            });
+        }
+    </script>
+</body>
+</html>
