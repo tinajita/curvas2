@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>CurvaaP</title>
+    <title>MotoNav Roadbook Pro</title>
     
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -51,7 +51,7 @@
 
         #hud-top-danger-meter {
             width: 100%; height: 22vh;
-            background: #FF8C00; 
+            background: linear-gradient(to bottom, rgba(25,32,24,0.95) 60%, rgba(20,25,20,0.4) 85%, rgba(0,0,0,0));
             display: none; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 10px 20px; border-radius: 0 0 22px 22px;
             transition: background 0.3s ease;
         }
@@ -66,41 +66,34 @@
         #hud-bottom-row { display: flex; justify-content: space-between; align-items: flex-end; width: 100%; }
 
         #panel-left-telemetry { display: flex; flex-direction: column; gap: 10px; pointer-events: auto; }
-        .speed-pill { 
-            display: flex; align-items: baseline; 
-            background: #2a2a2a; 
-            border: 1px solid rgba(0, 255, 102, 0.4); 
-            padding: 10px 24px; border-radius: 22px; 
-            box-shadow: 0 6px 20px rgba(0,0,0,0.8); width: fit-content; 
-        }
+        
+        .speed-pill { display: flex; align-items: center; background: rgba(25, 30, 24, 0.95); padding: 10px 20px; border-radius: 22px; border: 1px solid #424d44; box-shadow: 0 6px 20px rgba(0,0,0,0.8); width: fit-content; }
+        .speed-wrapper { display: flex; align-items: baseline; }
         #speed-value { font-size: 46px; font-weight: 900; color: #00ff66; line-height: 1; }
         .speed-unit { font-size: 13px; color: #aaa; margin-left: 6px; font-weight: bold; text-transform: uppercase; }
-
-        #trip-totals-pill { 
-            display: none; 
-            background: #2a2a2a; 
-            border: 1px solid rgba(0, 255, 102, 0.4); 
-            padding: 10px 18px; border-radius: 18px; 
-            box-shadow: 0 6px 20px rgba(0,0,0,0.7); 
-            font-weight: bold; font-size: 16px; color: #fff; gap: 12px; 
+        
+        /* Nueva señal de velocidad máxima (35% del tamaño de la velocidad aprox) */
+        .speed-limit-sign {
+            width: 34px; height: 34px;
+            background-color: white;
+            border: 4px solid #cc0000;
+            border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            color: black; font-weight: 900; font-size: 14px;
+            margin-left: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+            font-family: 'Arial', sans-serif;
         }
+
+        #trip-totals-pill { display: none; background: rgba(25, 30, 24, 0.95); border: 1px solid #424d44; padding: 10px 18px; border-radius: 18px; box-shadow: 0 6px 20px rgba(0,0,0,0.7); font-weight: bold; font-size: 16px; color: #fff; gap: 12px; }
         #trip-totals-pill span { color: #00ff66; font-weight: 900; }
 
         #panel-right-street { display: none; flex-direction: column; align-items: flex-end; pointer-events: auto; max-width: 48%; }
-        .street-pill { 
-            background: rgba(25, 30, 24, 0.95); 
-            border: 3px solid #00ff66; 
-            padding: 12px 18px; border-radius: 18px; 
-            box-shadow: 0 6px 20px rgba(0,0,0,0.8); 
-            display: flex; align-items: center; gap: 12px; 
-        }
+        .street-pill { background: rgba(25, 30, 24, 0.95); border: 2px solid #00ff66; padding: 12px 18px; border-radius: 18px; box-shadow: 0 6px 20px rgba(0,0,0,0.8); display: flex; align-items: center; gap: 12px; }
         #next-street-name { font-size: 15px; font-weight: 800; color: #ffffff; text-transform: uppercase; text-align: right; letter-spacing: 0.4px; }
-        .btn-close-route { 
-            background: #ff4500; 
-            color: white; border: none; width: 28px; height: 28px; border-radius: 50%; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; 
-        }
+        .btn-close-route { background: #ff3d00; color: white; border: none; width: 28px; height: 28px; border-radius: 50%; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 
-        .nav-arrow-marker { width: 55px; height: 55px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0px 8px 8px rgba(0,0,0,0.85)); }
+        .nav-arrow-marker { width: 55px; height: 55px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0px 8px 8px rgba(0,0,0,0.85)); transition: transform 0.2s linear; }
         #gps-alert-banner { position: absolute; top: 20px; left: 20px; right: 20px; background: #ff3d00; color: white; padding: 15px; border-radius: 12px; text-align: center; font-weight: bold; z-index: 999; display: none; box-shadow: 0 4px 20px rgba(0,0,0,0.5); pointer-events: auto; }
 
         @media (orientation: landscape) {
@@ -114,6 +107,7 @@
             #panel-left-telemetry { flex-direction: row; align-items: center; gap: 12px; }
             .speed-pill { padding: 6px 16px; }
             #speed-value { font-size: 32px; }
+            .speed-limit-sign { width: 26px; height: 26px; font-size: 11px; border-width: 3px; }
             #trip-totals-pill { padding: 8px 14px; font-size: 14px; }
             .street-pill { padding: 8px 14px; }
             #next-street-name { font-size: 13px; }
@@ -145,7 +139,7 @@
 
             <div id="hud-top-danger-meter">
                 <div id="danger-chevrons-container"></div>
-                <div id="hud-curve-distance">25 m</div>
+                <div id="hud-curve-distance">-- m</div>
             </div>
 
             <div id="recenter-container">
@@ -155,19 +149,22 @@
             <div id="hud-bottom-row">
                 <div id="panel-left-telemetry">
                     <div class="speed-pill">
-                        <span id="speed-value">0</span>
-                        <span class="speed-unit">km/h</span>
+                        <div class="speed-wrapper">
+                            <span id="speed-value">0</span>
+                            <span class="speed-unit">km/h</span>
+                        </div>
+                        <div class="speed-limit-sign" id="speed-limit-value">90</div>
                     </div>
                     <div id="trip-totals-pill">
-                        <div id="total-distance-display">12.3 KM</div>
+                        <div id="total-distance-display">-- KM</div>
                         <div style="color: #444;">|</div>
-                        <div id="total-time-display">18 MIN</div>
+                        <div id="total-time-display">-- MIN</div>
                     </div>
                 </div>
                 
                 <div id="panel-right-street">
                     <div class="street-pill">
-                        <span id="next-street-name">URBANIZACIÓN CORTIJO CONDE</span>
+                        <span id="next-street-name">Ruta</span>
                         <button class="btn-close-route" onclick="cancelarRuta()">✕</button>
                     </div>
                 </div>
@@ -184,7 +181,10 @@
         let arrowMarker;
         let miPosicion = [-4.4214, 36.7213]; 
         let destinoCoors = null;
+        
         let lastValidBearing = 0;
+        let nivelZoomActual = 14.5; // PERSISTENCIA DE ZOOM
+        
         let mapaDesplazadoPorUsuario = false;
         let autoRecenterTimer = null;
         let rutaActiva = false;
@@ -225,6 +225,15 @@
             if (metros <= 250) return "200 m";
             if (metros <= 350) return "300 m";
             return "400 m";
+        }
+
+        // Estimador visual de velocidad máxima
+        function estimarVelocidadMaxima(calleInfo, esAutovia) {
+            const nombre = calleInfo ? calleInfo.toUpperCase() : "";
+            if (esAutovia || nombre.includes("AP-") || nombre.includes("A-")) return "120";
+            if (nombre.includes("N-") || nombre.includes("NACIONAL")) return "90";
+            if (nombre.includes("CALLE") || nombre.includes("AVENIDA")) return "50";
+            return "90"; // Límite genérico por defecto
         }
 
         function renderizarHUDPeligro(direccion, peligrosidad, tipoManiobra, esAutovia) {
@@ -338,7 +347,6 @@
                 protocol.add(new pmtiles.PMTiles(PMTILES_URL));
             }
 
-            // --- NUEVO ESTILO ACTUALIZADO BASADO EN LA FOTO ---
             const ESTILO_MINIMALISTA_OFFLINE = {
                 "version": 8,
                 "sources": {
@@ -346,124 +354,47 @@
                 },
                 "glyphs": "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
                 "layers": [
-                    // 1. Fondo de tierra base oscuro (gris-verdoso claro de las colinas)
-                    { "id": "fondo-tierra", "type": "background", "paint": { "background-color": "#5c705e" } },
-                    
-                    // 1.5 Zonas de costa o arena (marrones)
+                    { "id": "fondo-tierra", "type": "background", "paint": { "background-color": "#283027" } },
                     {
-                        "id": "capa-arena",
-                        "type": "fill",
-                        "source": "mapa-curvas-source",
-                        "source-layer": "landuse",
-                        "filter": ["in", "kind", "sand", "beach"],
-                        "paint": {
-                            "fill-color": "#8f7c63",
-                            "fill-opacity": 0.8
-                        }
-                    },
-
-                    // 2. Bosques, parques y zonas naturales (verde más profundo)
-                    {
-                        "id": "capa-bosques",
-                        "type": "fill",
-                        "source": "mapa-curvas-source",
-                        "source-layer": "landuse",
+                        "id": "capa-bosques", "type": "fill", "source": "mapa-curvas-source", "source-layer": "landuse",
                         "filter": ["in", "kind", "forest", "wood", "nature_reserve", "park", "orchard", "vineyard", "grass"],
-                        "paint": {
-                            "fill-color": "#4f6352",
-                            "fill-opacity": 0.8
-                        }
+                        "paint": { "fill-color": "#1a2219", "fill-opacity": 0.8 }
                     },
-                    
-                    // 3. Masas de agua y océanos (azul marino de la foto)
-                    { "id": "capa-agua", "type": "fill", "source": "mapa-curvas-source", "source-layer": "water", "paint": { "fill-color": "#2a4b7c" } },
-                    { "id": "capa-oceanos", "type": "fill", "source": "mapa-curvas-source", "source-layer": "ocean", "paint": { "fill-color": "#2a4b7c" } },
-                    
-                    // 4. Zonas urbanas / pueblos (gris verdoso sutil un poco más saturado)
-                    { 
-                        "id": "capa-zonas-urbanas", 
-                        "type": "fill", 
-                        "source": "mapa-curvas-source", 
-                        "source-layer": "landuse", 
+                    { "id": "capa-agua", "type": "fill", "source": "mapa-curvas-source", "source-layer": "water", "paint": { "fill-color": "#182639" } },
+                    { "id": "capa-oceanos", "type": "fill", "source": "mapa-curvas-source", "source-layer": "ocean", "paint": { "fill-color": "#182639" } },
+                    { "id": "capa-zonas-urbanas", "type": "fill", "source": "mapa-curvas-source", "source-layer": "landuse", 
                         "filter": ["in", "kind", "residential", "industrial", "commercial", "retail"],
-                        "paint": { 
-                            "fill-color": "#657a68", 
-                            "fill-opacity": 0.6 
-                        } 
+                        "paint": { "fill-color": "#424d44", "fill-opacity": 0.45 } 
                     },
-                    
-                    // 5. Bloques de edificios / Casas (Gris azulado claro)
-                    { "id": "capa-edificios", "type": "fill", "source": "mapa-curvas-source", "source-layer": "buildings", "paint": { "fill-color": "#9eb1c0", "fill-opacity": 0.8 } },
-                    
-                    // 6. Calles residenciales de fondo (BLANCO FINITO)
-                    { 
-                        "id": "carreteras-secundarias", 
-                        "type": "line", 
-                        "source": "mapa-curvas-source", 
-                        "source-layer": "streets",
+                    { "id": "capa-edificios", "type": "fill", "source": "mapa-curvas-source", "source-layer": "buildings", "paint": { "fill-color": "#525f54", "fill-opacity": 0.6 } },
+                    { "id": "carreteras-secundarias", "type": "line", "source": "mapa-curvas-source", "source-layer": "streets",
                         "layout": { "line-join": "round", "line-cap": "round" }, 
-                        "paint": { 
-                            "line-color": "#ffffff", 
-                            "line-width": ["interpolate", ["linear"], ["zoom"], 10, 0.5, 15, 1.5],
-                            "line-opacity": 0.8
-                        } 
+                        "paint": { "line-color": "#384237", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 0.8, 15, 2.5] } 
                     },
-
-                    // 7. Carreteras principales / Nacionales (BLANCO)
-                    { 
-                        "id": "carreteras-principales", 
-                        "type": "line", 
-                        "source": "mapa-curvas-source", 
-                        "source-layer": "streets",
+                    { "id": "carreteras-principales", "type": "line", "source": "mapa-curvas-source", "source-layer": "streets",
                         "filter": ["in", "kind", "primary", "secondary", "tertiary"],
                         "layout": { "line-join": "round", "line-cap": "round" }, 
-                        "paint": { 
-                            "line-color": "#ffffff", 
-                            "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.5, 15, 3.5],
-                            "line-opacity": 0.9
-                        } 
+                        "paint": { "line-color": "#4a5649", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.5, 15, 4.5] } 
                     },
-
-                    // 8. Autovías y Autopistas (BLANCO)
-                    { 
-                        "id": "autovias", 
-                        "type": "line", 
-                        "source": "mapa-curvas-source", 
-                        "source-layer": "streets",
+                    { "id": "autovias", "type": "line", "source": "mapa-curvas-source", "source-layer": "streets",
                         "filter": ["==", "kind", "motorway"],
                         "layout": { "line-join": "round", "line-cap": "round" }, 
-                        "paint": { 
-                            "line-color": "#ffffff", 
-                            "line-width": ["interpolate", ["linear"], ["zoom"], 10, 2.5, 15, 5],
-                            "line-opacity": 1.0
-                        } 
+                        "paint": { "line-color": "#586757", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 2.5, 15, 6] } 
                     },
-
-                    // 9. Nombres de pueblos, ciudades y urbanizaciones
-                    {
-                        "id": "nombres-ciudades",
-                        "type": "symbol",
-                        "source": "mapa-curvas-source",
-                        "source-layer": "places",
+                    { "id": "nombres-ciudades", "type": "symbol", "source": "mapa-curvas-source", "source-layer": "places",
                         "layout": {
-                            "text-field": ["get", "name"],
-                            "text-font": ["Noto Sans Regular"],
+                            "text-field": ["get", "name"], "text-font": ["Noto Sans Regular"],
                             "text-size": ["interpolate", ["linear"], ["zoom"], 10, 11, 14, 15],
-                            "text-variable-anchor": ["top", "bottom", "left", "right"],
-                            "text-justify": "auto"
+                            "text-variable-anchor": ["top", "bottom", "left", "right"], "text-justify": "auto"
                         },
-                        "paint": {
-                            "text-color": "#ffffff",
-                            // Halo verde oscuro para dar contraste y legibilidad con el fondo claro
-                            "text-halo-color": "rgba(40, 50, 42, 0.85)",
-                            "text-halo-width": 2
-                        }
+                        "paint": { "text-color": "#ffffff", "text-halo-color": "rgba(40, 48, 39, 0.85)", "text-halo-width": 2 }
                     }
                 ]
             };
 
+            // INICIAMOS MAPA CON EL ZOOM POR DEFECTO PERO GUARDAMOS LA VARIABLE
             map = new maplibregl.Map({ 
-                container: 'map', style: ESTILO_MINIMALISTA_OFFLINE, center: miPosicion, zoom: 14.5, pitch: 62, bearing: 0, attributionControl: false 
+                container: 'map', style: ESTILO_MINIMALISTA_OFFLINE, center: miPosicion, zoom: nivelZoomActual, pitch: 62, bearing: 0, attributionControl: false 
             });
 
             map.on('load', () => { 
@@ -484,7 +415,6 @@
                     rutaActiva = true;
                     
                     document.getElementById('search-block').style.display = 'none';
-                    document.getElementById('hud-top-danger-meter').style.display = 'flex';
                     document.getElementById('trip-totals-pill').style.display = 'flex';
                     document.getElementById('panel-right-street').style.display = 'flex';
                     
@@ -498,10 +428,14 @@
                 }
                 setTimeout(recenterManual, 300); 
             });
+
             window.addEventListener('resize', () => { if (map) map.setOffset(getCenterOffset()); });
         }
 
         function configurarEventosGestos() {
+            // Guardamos el nivel de zoom que establece el usuario tras pellizcar
+            map.on('zoomend', () => { nivelZoomActual = map.getZoom(); });
+            
             map.on('dragstart', () => { mapaDesplazadoPorUsuario = true; document.getElementById('recenter-container').style.display = 'block'; clearTimeout(autoRecenterTimer); });
             map.on('dragend', () => { clearTimeout(autoRecenterTimer); autoRecenterTimer = setTimeout(recenterManual, 6000); });
         }
@@ -510,7 +444,8 @@
             mapaDesplazadoPorUsuario = false;
             document.getElementById('recenter-container').style.display = 'none';
             clearTimeout(autoRecenterTimer);
-            map.easeTo({ center: miPosicion, zoom: 14.5, bearing: lastValidBearing, pitch: 62, offset: getCenterOffset(), duration: 600 });
+            // Aplicamos el nivel de zoom persistente (nivelZoomActual) en lugar de fijar 14.5
+            map.easeTo({ center: miPosicion, zoom: nivelZoomActual, bearing: lastValidBearing, pitch: 62, offset: getCenterOffset(), duration: 600 });
         }
 
         function configurarCapasRuta() {
@@ -518,12 +453,12 @@
             map.addLayer({ 
                 id: 'route-casing', type: 'line', source: 'route-source', 
                 layout: { 'line-join': 'round', 'line-cap': 'round' }, 
-                paint: { 'line-color': '#00ff66', 'line-width': 18, 'line-opacity': 0.95 } 
+                paint: { 'line-color': '#00ff66', 'line-width': 12, 'line-opacity': 0.95 } 
             });
             map.addLayer({ 
                 id: 'route-core', type: 'line', source: 'route-source', 
                 layout: { 'line-join': 'round', 'line-cap': 'round' }, 
-                paint: { 'line-color': '#ffffff', 'line-width': 6 } 
+                paint: { 'line-color': '#ffffff', 'line-width': 5 } 
             });
         }
 
@@ -580,7 +515,6 @@
                 }
 
                 document.getElementById('search-block').style.display = 'none';
-                document.getElementById('hud-top-danger-meter').style.display = 'flex';
                 document.getElementById('trip-totals-pill').style.display = 'flex';
                 document.getElementById('panel-right-street').style.display = 'flex';
                 
@@ -616,14 +550,22 @@
             const proximaCalleInfo = proximoGiro.name || proximoGiro.ref || "";
             
             const esAutovia = /A-\d|AP-\d|Autovía|Autopista/i.test(calleActualInfo) || /A-\d|AP-\d|Autovía|Autopista/i.test(proximaCalleInfo);
-            document.getElementById('next-street-name').innerText = (proximaCalleInfo || "Tramo Continuo").toUpperCase();
+            document.getElementById('next-street-name').innerText = proximaCalleInfo || "Tramo Continuo";
+
+            // Actualizamos la señal visual del límite de velocidad estimado
+            document.getElementById('speed-limit-value').innerText = estimarVelocidadMaxima(calleActualInfo, esAutovia);
 
             const hudTop = document.getElementById('hud-top-danger-meter');
             const hudDistanceEl = document.getElementById('hud-curve-distance');
+            const mapElement = document.getElementById('map');
             
-            if (metrosRealesGiro > 400) {
+            const tipoManiobra = proximoGiro.maneuver.type;
+
+            // CORRECCIÓN LÓGICA DE RECTAS / MÁS DE 400 METROS
+            // Si falta mucho o la indicación es simplemente seguir recto por la misma vía, ocultamos el HUD superior.
+            if (metrosRealesGiro > 400 || tipoManiobra === 'continue') {
                 hudTop.style.display = 'none';
-                document.getElementById('map').style.backgroundColor = 'transparent';
+                mapElement.style.backgroundColor = 'transparent';
             } else {
                 hudTop.style.display = 'flex';
                 
@@ -641,12 +583,11 @@
                 if (modifier.includes('right')) direccion = 'der';
 
                 let peligrosidad = 'low'; 
-                const maneuverType = proximoGiro.maneuver.type;
-
-                if (motos_danger_types_medium.includes(maneuverType) || motos_danger_modifiers_medium.includes(modifier)) peligrosidad = 'medium';
+                
+                if (motos_danger_types_medium.includes(tipoManiobra) || motos_danger_modifiers_medium.includes(modifier)) peligrosidad = 'medium';
                 if (motos_danger_modifiers_high.includes(modifier)) peligrosidad = 'high';
 
-                renderizarHUDPeligro(direccion, peligrosidad, maneuverType, esAutovia);
+                renderizarHUDPeligro(direccion, peligrosidad, tipoManiobra, esAutovia);
             }
         }
 
@@ -685,7 +626,18 @@
                 const velocidad = position.coords.speed ? Math.round(position.coords.speed * 3.6) : 0;
                 
                 miPosicion = [lon, lat];
-                if (position.coords.heading !== null && position.coords.heading !== undefined) { lastValidBearing = position.coords.heading; }
+
+                // Filtro para suavizar el "bearing" (rotación) y evitar giros locos de 360 grados
+                if (position.coords.heading !== null && !isNaN(position.coords.heading)) {
+                    let nuevoHeading = position.coords.heading;
+                    let dif = nuevoHeading - lastValidBearing;
+                    // Ajuste para el salto entre 359º y 1º
+                    if (dif > 180) nuevoHeading -= 360;
+                    else if (dif < -180) nuevoHeading += 360;
+                    
+                    // Suavizado tipo moving average
+                    lastValidBearing = lastValidBearing + (nuevoHeading - lastValidBearing) * 0.4;
+                }
                 
                 document.getElementById('speed-value').innerText = velocidad;
                 arrowMarker.setLngLat(miPosicion);
@@ -695,12 +647,20 @@
                 
                 if (rutaActiva) { procesarLogicaOffline(); }
                 
+                // Mantiene el nivelZoomActual para respetar el ajuste del usuario
                 if (!mapaDesplazadoPorUsuario) { 
-                    map.easeTo({ center: miPosicion, bearing: lastValidBearing, offset: getCenterOffset(), duration: 280, easing: (t) => t }); 
+                    map.easeTo({ 
+                        center: miPosicion, 
+                        bearing: lastValidBearing, 
+                        zoom: nivelZoomActual, 
+                        offset: getCenterOffset(), 
+                        duration: 800, // Suavizado GPS
+                        easing: (t) => t * (2 - t) // Easing fluido
+                    }); 
                 }
             }, (err) => {
                 document.getElementById('gps-alert-banner').style.display = 'block';
-            }, { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 });
+            }, { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 });
         }
 
         if ('wakeLock' in navigator) {
