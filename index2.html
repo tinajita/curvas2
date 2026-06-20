@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>MotoNav Roadbook Pro</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3069/3069170.png">
+    
+    <link href="https://unpkg.com/maplibre-gl@4.3.2/dist/maplibre-gl.css" rel="stylesheet" />
+    <script src="https://unpkg.com/pmtiles@3.2.0/dist/pmtiles.js"></script>
+    
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        
+        body, html { height: 100dvh; background-color: #2a2a2a; color: #fff; overflow: hidden; }
+        #navigator-container { display: flex; flex-direction: column; height: 100dvh; position: relative; }
+        
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; transition: background-color 0.3s ease; }
+
+        /* Overlay de Descarga (Oculto por defecto) */
+        #download-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(30, 36, 29, 0.98); z-index: 9999; display: none;
+            flex-direction: column; align-items: center; justify-content: center; padding: 30px;
+            text-align: center;
+        }
+        #download-overlay p { color: #aaa; margin-bottom: 25px; font-size: 14px; max-width: 320px; line-height: 1.4; }
+        #download-bar-container { width: 100%; max-width: 300px; height: 8px; background: #333; border-radius: 4px; overflow: hidden; margin-bottom: 10px; border: 1px solid #444; }
+        #download-bar { width: 0%; height: 100%; background: linear-gradient(90deg, #00ff66, #00e5ff); transition: width 0.1s ease; }
+        
+        .btn-cancelar-descarga {
+            background: transparent; color: #aaa; border: 1px solid #666; padding: 12px 24px;
+            border-radius: 25px; font-size: 12px; font-weight: bold; text-transform: uppercase;
+            cursor: pointer; transition: all 0.2s; margin-top: 30px;
+        }
+        .btn-cancelar-descarga:active { background: #333; border-color: #aaa; color: #fff; }
+
+        #ui-overlay { 
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 10; 
+            pointer-events: none; display: flex; flex-direction: column; 
+            justify-content: space-between; padding: 14px;
+            padding-top: calc(env(safe-area-inset-top, 12px) + 4px);
+            padding-bottom: calc(env(safe-area-inset-bottom, 12px) + 38px);
+        }
+
+        /* Contenedor Superior (Buscador + Botón Offline) */
+        #top-bar-container { display: flex; gap: 8px; margin-top: 10px; width: 100%; pointer-events: none; align-items: stretch; }
+        
+        #search-block { background: rgba(25, 30, 24, 0.95); border: 1px solid #424d44; border-bottom: 3px solid #00ff66; padding: 12px; border-radius: 20px; pointer-events: auto; box-shadow: 0 6px 30px rgba(0,0,0,0.8); display: flex; gap: 10px; flex: 1; }
+        #destination-input { flex: 1; background: #1a2019; border: 1px solid #384237; color: #fff; padding: 14px 18px; font-size: 16px; border-radius: 25px; outline: none; }
+        #destination-input:focus { border-color: #00ff66; }
+        .btn-action { background: #00ff66; color: #000; border: none; padding: 0 25px; font-size: 14px; font-weight: bold; border-radius: 25px; cursor: pointer; text-transform: uppercase; }
+
+        /* Botón de Descarga Manual Offline */
+        #btn-download-offline {
+            pointer-events: auto; display: none; background: rgba(25, 30, 24, 0.95); border: 1px solid #424d44;
+            color: #00ff66; padding: 0 16px; border-radius: 20px; font-weight: 800; font-size: 12px; 
+            box-shadow: 0 6px 30px rgba(0,0,0,0.8); text-transform: uppercase; cursor: pointer; 
+            transition: all 0.2s ease; border-bottom: 3px solid #424d44; letter-spacing: 0.5px;
+        }
+        #btn-download-offline:active { background: #384237; }
+
+        #hud-top-danger-meter {
+            width: 100%; height: 22vh;
+            background: linear-gradient(to bottom, rgba(25,32,24,0.95) 60%, rgba(20,25,20,0.4) 85%, rgba(0,0,0,0));
+            display: none; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 10px 20px; border-radius: 0 0 22px 22px;
+            transition: background 0.3s ease;
+        }
+
+        #danger-chevrons-container { display: flex; align-items: center; justify-content: center; gap: 8px; height: 70px; }
+        .danger-chevron { width: 52px; height: 70px; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.95)); }
+        #hud-curve-distance { font-size: 56px; font-weight: 900; color: #ffffff; letter-spacing: -2px; line-height: 1; text-shadow: 0 4px 12px rgba(0,0,0,1); }
+
+        #recenter-container { position: absolute; top: 25vh; right: 15px; display: none; pointer-events: auto; }
+        .btn-recenter { background: #00ff66; color: #000; border: none; padding: 10px 18px; font-size: 12px; font-weight: bold; border-radius: 20px; text-transform: uppercase; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+
+        #hud-bottom-row { display: flex; justify-content: space-between; align-items: flex-end; width: 100%; }
+        #panel-left-telemetry { display: flex; flex-direction: column; gap: 10px; pointer-events: auto; }
+        
+        .speed-pill { display: flex; align-items: center; background: rgba(25, 30, 24, 0.95); padding: 10px 20px; border-radius: 22px; border: 1px solid #424d44; box-shadow: 0 6px 20px rgba(0,0,0,0.8); width: fit-content; }
+        .speed-wrapper { display: flex; align-items: baseline; }
+        #speed-value { font-size: 46px; font-weight: 900; color: #00ff66; line-height: 1; }
+        .speed-unit { font-size: 13px; color: #aaa; margin-left: 6px; font-weight: bold; text-transform: uppercase; }
+        
+        .speed-limit-sign {
+            width: 34px; height: 34px; background-color: white; border: 4px solid #cc0000; border-radius: 50%;
+            display: flex; justify-content: center; align-items: center; color: black; font-weight: 900; font-size: 14px;
+            margin-left: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.5); font-family: 'Arial', sans-serif;
+        }
+
+        #trip-totals-pill { display: none; background: rgba(25, 30, 24, 0.95); border: 1px solid #424d44; padding: 10px 18px; border-radius: 18px; box-shadow: 0 6px 20px rgba(0,0,0,0.7); font-weight: bold; font-size: 16px; color: #fff; gap: 12px; }
+        #trip-totals-pill span { color: #00ff66; font-weight: 900; }
+
+        #panel-right-street { display: none; flex-direction: column; align-items: flex-end; pointer-events: auto; max-width: 48%; }
+        .street-pill { background: rgba(25, 30, 24, 0.95); border: 2px solid #00ff66; padding: 12px 18px; border-radius: 18px; box-shadow: 0 6px 20px rgba(0,0,0,0.8); display: flex; align-items: center; gap: 12px; }
+        #next-street-name { font-size: 15px; font-weight: 800; color: #ffffff; text-transform: uppercase; text-align: right; letter-spacing: 0.4px; }
+        .btn-close-route { background: #ff3d00; color: white; border: none; width: 28px; height: 28px; border-radius: 50%; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+        .nav-arrow-marker { width: 55px; height: 55px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0px 8px 8px rgba(0,0,0,0.85)); transition: transform 0.2s linear; }
+        
+        #dynamic-alert-banner { position: absolute; top: 20px; left: 20px; right: 20px; background: #ff3d00; color: white; padding: 15px; border-radius: 12px; text-align: center; font-weight: bold; z-index: 999; display: none; box-shadow: 0 4px 20px rgba(0,0,0,0.5); pointer-events: auto; transition: background 0.3s ease; }
+
+        @media (orientation: landscape) {
+            #ui-overlay { padding-top: env(safe-area-inset-top, 4px); padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 32px); }
+            #hud-top-danger-meter { height: 52px; flex-direction: row; justify-content: space-between; padding: 0 40px; border-radius: 0 0 14px 14px; }
+            #danger-chevrons-container { height: 38px; gap: 12px; }
+            .danger-chevron { width: 26px; height: 38px; }
+            #hud-curve-distance { font-size: 34px; }
+            #recenter-container { top: 65px; }
+            #hud-bottom-row { align-items: center; }
+            #panel-left-telemetry { flex-direction: row; align-items: center; gap: 12px; }
+            .speed-pill { padding: 6px 16px; }
+            #speed-value { font-size: 32px; }
+            .speed-limit-sign { width: 26px; height: 26px; font-size: 11px; border-width: 3px; }
+            #trip-totals-pill { padding: 8px 14px; font-size: 14px; }
+            .street-pill { padding: 8px 14px; }
+            #next-street-name { font-size: 13px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="download-overlay">
+        <h2 style="color: #fff; margin-bottom: 8px; font-weight: 800; letter-spacing: 0.5px;">DESCARGANDO MAPA</h2>
+        <p>Guardando la cartografía en tu dispositivo. Podrás navegar sin usar datos móviles ni cobertura.</p>
+        <div id="download-bar-container">
+            <div id="download-bar"></div>
+        </div>
+        <div id="download-progress" style="color: #00ff66; font-weight: 900; font-size: 20px;">0%</div>
+        <button class="btn-cancelar-descarga" onclick="cancelarDescarga()">Cancelar</button>
+    </div>
+
+    <div id="dynamic-alert-banner" onclick="this.style.display='none'">
+        ⚠️ GPS sin precisión.
+    </div>
+
+    <div id="navigator-container">
+        <div id="map"></div>
+
+        <div id="ui-overlay">
+            
+            <div id="top-bar-container">
+                <div id="search-block">
+                    <input type="text" id="destination-input" placeholder="¿A dónde vamos con la moto?...">
+                    <button class="btn-action" onclick="fijarRutaDestino()">Ir</button>
+                </div>
+                <button id="btn-download-offline" onclick="descargarMapaOffline()">⬇️ Offline</button>
+            </div>
+
+            <div id="hud-top-danger-meter">
+                <div id="danger-chevrons-container"></div>
+                <div id="hud-curve-distance">-- m</div>
+            </div>
+
+            <div id="recenter-container">
+                <button class="btn-recenter" onclick="recenterManual()">✕ Recentrar</button>
+            </div>
+
+            <div id="hud-bottom-row">
+                <div id="panel-left-telemetry">
+                    <div class="speed-pill">
+                        <div class="speed-wrapper">
+                            <span id="speed-value">0</span>
+                            <span class="speed-unit">km/h</span>
+                        </div>
+                        <div class="speed-limit-sign" id="speed-limit-value">90</div>
+                    </div>
+                    <div id="trip-totals-pill">
+                        <div id="total-distance-display">-- KM</div>
+                        <div style="color: #444;">|</div>
+                        <div id="total-time-display">-- MIN</div>
+                    </div>
+                </div>
+                
+                <div id="panel-right-street">
+                    <div class="street-pill">
+                        <span id="next-street-name">Ruta</span>
+                        <button class="btn-close-route" onclick="cancelarRuta()">✕</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/maplibre-gl@4.3.2/dist/maplibre-gl.js"></script>
+
+    <script>
+        const PMTILES_URL = 'https://files.catbox.moe/3kj1tu.pmtiles';
+        const NOMBRE_CACHE = 'motonav-map-store';
+        
+        let map;
+        let arrowMarker;
+        let miPosicion = [-4.4214, 36.7213]; 
+        let destinoCoors = null;
+        
+        let lastValidBearing = 0;
+        let nivelZoomActual = 14.5;
+        
+        let mapaDesplazadoPorUsuario = false;
+        let autoRecenterTimer = null;
+        let rutaActiva = false;
+
+        let datosRutaGuardada = null;
+        let indicePasoActual = 0;
+
+        let abortController = null;
+
+        const getCenterOffset = () => [0, window.innerHeight * (window.innerHeight > window.innerWidth ? 0.16 : 0.04)];
+        const CONFIG_PELIGRO = { low: { paneles: 1 }, medium: { paneles: 2 }, high: { paneles: 3 } };
+        const ICONOS_HUD = {
+            rotonda: `<svg class="danger-chevron" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:60px; height:60px;"><circle cx="12" cy="12" r="8"/><path d="M12 2v4M12 18v4M4 12h4M16 12h4"/></svg>`,
+            cruce: `<svg class="danger-chevron" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:55px; height:55px;"><path d="M12 2v20M2 12h20"/></svg>`,
+            autovia: `<svg class="danger-chevron" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:65px; height:65px;"><path d="M7 2v20M17 2v20M3 12h6M15 12h6"/></svg>`
+        };
+
+        function calcularDistanciaHaversine(lon1, lat1, lon2, lat2) {
+            const R = 6371000; 
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); 
+        }
+
+        function cuantificarMetrosCurva(metros) {
+            if (metros < 25) return ""; 
+            if (metros <= 37) return "25 m";
+            if (metros <= 75) return "50 m";
+            if (metros <= 150) return "100 m";
+            if (metros <= 250) return "200 m";
+            if (metros <= 350) return "300 m";
+            return "400 m";
+        }
+
+        function estimarVelocidadMaxima(calleInfo, esAutovia) {
+            const nombre = calleInfo ? calleInfo.toUpperCase() : "";
+            if (esAutovia || nombre.includes("AP-") || nombre.includes("A-")) return "120";
+            if (nombre.includes("N-") || nombre.includes("NACIONAL")) return "90";
+            if (nombre.includes("CALLE") || nombre.includes("AVENIDA")) return "50";
+            return "90";
+        }
+
+        function mostrarNotificacionPersonalizada(mensaje, colorFondo, colorTexto) {
+            const banner = document.getElementById('dynamic-alert-banner');
+            banner.innerText = mensaje;
+            banner.style.background = colorFondo;
+            banner.style.color = colorTexto;
+            banner.style.display = 'block';
+            setTimeout(() => {
+                banner.style.display = 'none';
+                // Reseteamos al estado por defecto del GPS
+                banner.innerText = '⚠️ GPS sin precisión.';
+                banner.style.background = '#ff3d00';
+                banner.style.color = 'white';
+            }, 4000);
+        }
+
+        async function descargarMapaOffline() {
+            const overlay = document.getElementById('download-overlay');
+            const barra = document.getElementById('download-bar');
+            const progreso = document.getElementById('download-progress');
+            
+            overlay.style.display = 'flex';
+            barra.style.width = '0%';
+            progreso.innerText = '0%';
+            
+            abortController = new AbortController();
+
+            try {
+                const respuesta = await fetch(PMTILES_URL, { signal: abortController.signal });
+                if (!respuesta.ok) throw new Error("Fallo de red al conectar con el servidor.");
+
+                const tamanoTotal = parseInt(respuesta.headers.get('content-length') || '0', 10);
+                const lector = respuesta.body.getReader();
+                let bytesDescargados = 0;
+                const fragmentos = [];
+
+                while(true) {
+                    const {done, value} = await lector.read();
+                    if (done) break;
+                    fragmentos.push(value);
+                    bytesDescargados += value.length;
+                    if (tamanoTotal > 0) {
+                        const porcentaje = Math.round((bytesDescargados / tamanoTotal) * 100);
+                        barra.style.width = porcentaje + '%';
+                        progreso.innerText = porcentaje + '%';
+                    }
+                }
+
+                const mapaCompletoBlob = new Blob(fragmentos);
+                const cache = await caches.open(NOMBRE_CACHE);
+                await cache.put(PMTILES_URL, new Response(mapaCompletoBlob, { headers: { 'Content-Type': 'application/octet-stream' } }));
+                
+                overlay.style.display = 'none';
+                document.getElementById('btn-download-offline').style.display = 'none';
+                
+                mostrarNotificacionPersonalizada("✅ Mapa descargado con éxito.", "#00ff66", "#000");
+
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    console.log('Descarga cancelada por el usuario.');
+                } else {
+                    console.error('Error en la descarga:', error);
+                    mostrarNotificacionPersonalizada("❌ Error al descargar el mapa.", "#ff3d00", "white");
+                }
+                overlay.style.display = 'none';
+            }
+        }
+
+        function cancelarDescarga() {
+            if (abortController) { abortController.abort(); }
+        }
+
+        async function initNavigator() {
+            const protocol = new pmtiles.Protocol();
+            maplibregl.addProtocol("pmtiles", protocol.tile);
+            
+            let urlIdentificador = PMTILES_URL;
+            let mapaOfflineListo = false;
+
+            // Comprobación limpia y rápida de si el mapa ya existe
+            try {
+                const cache = await caches.open(NOMBRE_CACHE);
+                const respuestaGuardada = await cache.match(PMTILES_URL);
+
+                if (respuestaGuardada) {
+                    const mapaCompletoBlob = await respuestaGuardada.blob();
+                    const fuenteLocal = {
+                        getKey: () => "mapa-motonat-local",
+                        getBytes: async (offset, length) => {
+                            const corte = mapaCompletoBlob.slice(offset, offset + length);
+                            return { data: await corte.arrayBuffer() };
+                        }
+                    };
+                    protocol.add(new pmtiles.PMTiles(fuenteLocal));
+                    urlIdentificador = "mapa-motonat-local";
+                    mapaOfflineListo = true;
+                } else {
+                    protocol.add(new pmtiles.PMTiles(PMTILES_URL));
+                }
+            } catch (error) {
+                console.error("Error comprobando la caché:", error);
+                protocol.add(new pmtiles.PMTiles(PMTILES_URL));
+            }
+
+            // Si no hay mapa guardado, enseñamos el botón para descargarlo manualmente
+            if (!mapaOfflineListo) {
+                document.getElementById('btn-download-offline').style.display = 'block';
+            }
+
+            const ESTILO_MINIMALISTA_OFFLINE = {
+                "version": 8,
+                "sources": { "mapa-curvas-source": { "type": "vector", "url": "pmtiles://" + urlIdentificador, "attribution": "© OSM" } },
+                "glyphs": "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
+                "layers": [
+                    { "id": "fondo-tierra", "type": "background", "paint": { "background-color": "#283027" } },
+                    { "id": "capa-bosques", "type": "fill", "source": "mapa-curvas-source", "source-layer": "landuse", "filter": ["in", "kind", "forest", "wood", "nature_reserve", "park", "orchard", "vineyard", "grass"], "paint": { "fill-color": "#1a2219", "fill-opacity": 0.8 } },
+                    { "id": "capa-agua", "type": "fill", "source": "mapa-curvas-source", "source-layer": "water", "paint": { "fill-color": "#182639" } },
+                    { "id": "capa-oceanos", "type": "fill", "source": "mapa-curvas-source", "source-layer": "ocean", "paint": { "fill-color": "#182639" } },
+                    { "id": "capa-zonas-urbanas", "type": "fill", "source": "mapa-curvas-source", "source-layer": "landuse", "filter": ["in", "kind", "residential", "industrial", "commercial", "retail"], "paint": { "fill-color": "#424d44", "fill-opacity": 0.45 } },
+                    { "id": "capa-edificios", "type": "fill", "source": "mapa-curvas-source", "source-layer": "buildings", "paint": { "fill-color": "#525f54", "fill-opacity": 0.6 } },
+                    { "id": "carreteras-secundarias", "type": "line", "source": "mapa-curvas-source", "source-layer": "streets", "layout": { "line-join": "round", "line-cap": "round" }, "paint": { "line-color": "#384237", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 0.8, 15, 2.5] } },
+                    { "id": "carreteras-principales", "type": "line", "source": "mapa-curvas-source", "source-layer": "streets", "filter": ["in", "kind", "primary", "secondary", "tertiary"], "layout": { "line-join": "round", "line-cap": "round" }, "paint": { "line-color": "#4a5649", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.5, 15, 4.5] } },
+                    { "id": "autovias", "type": "line", "source": "mapa-curvas-source", "source-layer": "streets", "filter": ["==", "kind", "motorway"], "layout": { "line-join": "round", "line-cap": "round" }, "paint": { "line-color": "#586757", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 2.5, 15, 6] } },
+                    { "id": "nombres-ciudades", "type": "symbol", "source": "mapa-curvas-source", "source-layer": "places", "layout": { "text-field": ["get", "name"], "text-font": ["Noto Sans Regular"], "text-size": ["interpolate", ["linear"], ["zoom"], 10, 11, 14, 15], "text-variable-anchor": ["top", "bottom", "left", "right"], "text-justify": "auto" }, "paint": { "text-color": "#ffffff", "text-halo-color": "rgba(40, 48, 39, 0.85)", "text-halo-width": 2 } }
+                ]
+            };
+
+            map = new maplibregl.Map({ 
+                container: 'map', style: ESTILO_MINIMALISTA_OFFLINE, center: miPosicion, zoom: nivelZoomActual, pitch: 62, bearing: 0, attributionControl: false 
+            });
+
+            map.on('load', () => { 
+                configurarCapasRuta(); crearIconoNavegacion(); arrancarSeguimientoGPS(); configurarEventosGestos(); 
+                
+                const destinoGuardado = localStorage.getItem('destinoMoto');
+                const coorsGuardadas = localStorage.getItem('coorsMoto');
+                const pasosGuardados = localStorage.getItem('pasosRutaMoto');
+                
+                if (destinoGuardado && coorsGuardadas && pasosGuardados) {
+                    document.getElementById('destination-input').value = destinoGuardado;
+                    destinoCoors = JSON.parse(coorsGuardadas); datosRutaGuardada = JSON.parse(pasosGuardados);
+                    indicePasoActual = parseInt(localStorage.getItem('indicePasoMoto') || '0', 10);
+                    rutaActiva = true;
+                    
+                    document.getElementById('top-bar-container').style.display = 'none';
+                    document.getElementById('trip-totals-pill').style.display = 'flex';
+                    document.getElementById('panel-right-street').style.display = 'flex';
+                    
+                    const geometriaGuardada = localStorage.getItem('geometriaRutaMoto');
+                    if (geometriaGuardada) { map.getSource('route-source').setData({ type: 'FeatureCollection', features: [{ type: 'Feature', geometry: JSON.parse(geometriaGuardada), properties: {} }] }); }
+                    procesarLogicaOffline();
+                }
+                setTimeout(recenterManual, 300); 
+            });
+
+            window.addEventListener('resize', () => { if (map) map.setOffset(getCenterOffset()); });
+        }
+
+        function renderizarHUDPeligro(direccion, peligrosidad, tipoManiobra, esAutovia) {
+            const container = document.getElementById('danger-chevrons-container');
+            const mapaElement = document.getElementById('map');
+            const hudTop = document.getElementById('hud-top-danger-meter');
+            container.innerHTML = ''; 
+
+            const GRADIENTES = {
+                low: 'linear-gradient(to bottom, rgba(0, 200, 50, 0.95) 50%, rgba(0, 200, 50, 0.3) 85%, rgba(0,0,0,0))',      
+                medium: 'linear-gradient(to bottom, rgba(255, 140, 0, 0.95) 50%, rgba(255, 140, 0, 0.3) 85%, rgba(0,0,0,0))', 
+                high: 'linear-gradient(to bottom, rgba(255, 0, 0, 0.95) 50%, rgba(255, 0, 0, 0.3) 85%, rgba(0,0,0,0))'         
+            };
+
+            if (esAutovia && peligrosidad !== 'high') {
+                mapaElement.style.backgroundColor = 'transparent'; hudTop.style.background = GRADIENTES.low;
+                container.innerHTML = ICONOS_HUD.autovia; return;
+            }
+            if (tipoManiobra.includes('roundabout') || tipoManiobra.includes('rotary')) {
+                mapaElement.style.backgroundColor = 'transparent'; hudTop.style.background = GRADIENTES.low;
+                container.innerHTML = ICONOS_HUD.rotonda; return;
+            }
+            if (tipoManiobra === 'intersection') {
+                mapaElement.style.backgroundColor = 'transparent'; hudTop.style.background = GRADIENTES.low;
+                container.innerHTML = ICONOS_HUD.cruce; return;
+            }
+
+            const config = CONFIG_PELIGRO[peligrosidad] || CONFIG_PELIGRO.low;
+            if (peligrosidad === 'medium') {
+                mapaElement.style.backgroundColor = 'rgba(255, 140, 0, 0.15)'; hudTop.style.background = GRADIENTES.medium;
+            } else if (peligrosidad === 'high') {
+                mapaElement.style.backgroundColor = 'rgba(255, 0, 0, 0.2)'; hudTop.style.background = GRADIENTES.high;
+            } else {
+                mapaElement.style.backgroundColor = 'transparent'; hudTop.style.background = GRADIENTES.low;
+            }
+
+            const scaleX = (direccion === 'izq') ? -1 : 1;
+            const svgChevron = `<svg class="danger-chevron" style="transform: scaleX(${scaleX});" viewBox="0 0 24 24" fill="none"><path d="M10 5L17 12L10 19" stroke="#ffffff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+            for (let i = 0; i < config.paneles; i++) { container.innerHTML += svgChevron; }
+        }
+
+        function configurarEventosGestos() {
+            map.on('zoomend', () => { nivelZoomActual = map.getZoom(); });
+            map.on('dragstart', () => { mapaDesplazadoPorUsuario = true; document.getElementById('recenter-container').style.display = 'block'; clearTimeout(autoRecenterTimer); });
+            map.on('dragend', () => { clearTimeout(autoRecenterTimer); autoRecenterTimer = setTimeout(recenterManual, 6000); });
+        }
+
+        function recenterManual() {
+            mapaDesplazadoPorUsuario = false; document.getElementById('recenter-container').style.display = 'none'; clearTimeout(autoRecenterTimer);
+            map.easeTo({ center: miPosicion, zoom: nivelZoomActual, bearing: lastValidBearing, pitch: 62, offset: getCenterOffset(), duration: 600 });
+        }
+
+        function configurarCapasRuta() {
+            map.addSource('route-source', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+            map.addLayer({ id: 'route-casing', type: 'line', source: 'route-source', layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': '#00ff66', 'line-width': 12, 'line-opacity': 0.95 } });
+            map.addLayer({ id: 'route-core', type: 'line', source: 'route-source', layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': '#ffffff', 'line-width': 5 } });
+        }
+
+        function crearIconoNavegacion() {
+            const container = document.createElement('div'); container.className = 'nav-arrow-marker';
+            container.innerHTML = `<svg width="50" height="50" viewBox="0 0 100 100"><defs><linearGradient id="red3d" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ff3333" /><stop offset="100%" stop-color="#9e0031" /></linearGradient></defs><path d="M50 10 L90 85 L50 68 L10 85 Z" fill="url(#red3d)" stroke="#ffffff" stroke-width="2.5" stroke-linejoin="round"/></svg>`;
+            arrowMarker = new maplibregl.Marker({ element: container }).setLngLat(miPosicion).addTo(map);
+        }
+
+        async function fijarRutaDestino() {
+            const query = document.getElementById('destination-input').value; if (!query) return;
+            try {
+                const searchResponse = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
+                const searchData = await searchResponse.json(); if (searchData.length === 0) return;
+                destinoCoors = [parseFloat(searchData[0].lon), parseFloat(searchData[0].lat)];
+                
+                const routeResponse = await fetch(`https://router.project-osrm.org/route/v1/driving/${miPosicion[0]},${miPosicion[1]};${destinoCoors[0]},${destinoCoors[1]}?overview=full&geometries=geojson&steps=true`);
+                const routeData = await routeResponse.json(); if (!routeData.routes || routeData.routes.length === 0) return;
+                
+                const dataRuta = routeData.routes[0];
+                datosRutaGuardada = dataRuta.legs[0].steps; indicePasoActual = 0; rutaActiva = true;
+                
+                localStorage.setItem('destinoMoto', query); localStorage.setItem('coorsMoto', JSON.stringify(destinoCoors));
+                localStorage.setItem('pasosRutaMoto', JSON.stringify(datosRutaGuardada)); localStorage.setItem('indicePasoMoto', '0');
+                localStorage.setItem('geometriaRutaMoto', JSON.stringify(dataRuta.geometry));
+                
+                map.getSource('route-source').setData({ type: 'FeatureCollection', features: [{ type: 'Feature', geometry: dataRuta.geometry, properties: {} }] });
+                
+                const kms = (dataRuta.distance / 1000).toFixed(1);
+                document.getElementById('total-distance-display').innerHTML = `<span>${kms}</span> KM`;
+                const totalMinutos = Math.round(dataRuta.duration / 60);
+                if (totalMinutos >= 60) { document.getElementById('total-time-display').innerHTML = `<span>${Math.floor(totalMinutos / 60)}h ${totalMinutos % 60}m</span>`; } 
+                else { document.getElementById('total-time-display').innerHTML = `<span>${totalMinutos}</span> MIN`; }
+
+                // Ocultamos la barra superior entera durante la navegación
+                document.getElementById('top-bar-container').style.display = 'none';
+                
+                document.getElementById('trip-totals-pill').style.display = 'flex';
+                document.getElementById('panel-right-street').style.display = 'flex';
+                
+                procesarLogicaOffline(); recenterManual();
+            } catch (error) { console.error(error); }
+        }
+
+        function procesarLogicaOffline() {
+            if (!rutaActiva || !datosRutaGuardada || indicePasoActual >= datosRutaGuardada.length) return;
+
+            let pasoActual = datosRutaGuardada[indicePasoActual]; let destinoGiroCoors = pasoActual.maneuver.location;
+            let metrosRealesGiro = Math.round(calcularDistanciaHaversine(miPosicion[0], miPosicion[1], destinoGiroCoors[0], destinoGiroCoors[1]));
+
+            if (metrosRealesGiro <= 12 && (indicePasoActual + 1) < datosRutaGuardada.length) {
+                indicePasoActual++; localStorage.setItem('indicePasoMoto', indicePasoActual.toString());
+                pasoActual = datosRutaGuardada[indicePasoActual]; destinoGiroCoors = pasoActual.maneuver.location;
+                metrosRealesGiro = Math.round(calcularDistanciaHaversine(miPosicion[0], miPosicion[1], destinoGiroCoors[0], destinoGiroCoors[1]));
+            }
+
+            let proximoGiro = datosRutaGuardada[indicePasoActual + 1] || pasoActual;
+            const calleActualInfo = pasoActual.name || pasoActual.ref || "";
+            const proximaCalleInfo = proximoGiro.name || proximoGiro.ref || "";
+            
+            const esAutovia = /A-\d|AP-\d|Autovía|Autopista/i.test(calleActualInfo) || /A-\d|AP-\d|Autovía|Autopista/i.test(proximaCalleInfo);
+            document.getElementById('next-street-name').innerText = proximaCalleInfo || "Tramo Continuo";
+            document.getElementById('speed-limit-value').innerText = estimarVelocidadMaxima(calleActualInfo, esAutovia);
+
+            const hudTop = document.getElementById('hud-top-danger-meter');
+            const hudDistanceEl = document.getElementById('hud-curve-distance');
+            const mapElement = document.getElementById('map');
+            const tipoManiobra = proximoGiro.maneuver.type;
+
+            if (metrosRealesGiro > 400 || tipoManiobra === 'continue') {
+                hudTop.style.display = 'none'; mapElement.style.backgroundColor = 'transparent';
+            } else {
+                hudTop.style.display = 'flex';
+                const textoMetros = cuantificarMetrosCurva(metrosRealesGiro);
+                if (textoMetros === "") { hudDistanceEl.style.display = 'none'; } else { hudDistanceEl.style.display = 'block'; hudDistanceEl.innerText = textoMetros; }
+
+                const modifier = proximoGiro.maneuver.modifier || '';
+                let direccion = 'recto'; if (modifier.includes('left')) direccion = 'izq'; if (modifier.includes('right')) direccion = 'der';
+                let peligrosidad = 'low'; 
+                
+                if (motos_danger_types_medium.includes(tipoManiobra) || motos_danger_modifiers_medium.includes(modifier)) peligrosidad = 'medium';
+                if (motos_danger_modifiers_high.includes(modifier)) peligrosidad = 'high';
+
+                renderizarHUDPeligro(direccion, peligrosidad, tipoManiobra, esAutovia);
+            }
+        }
+
+        const motos_danger_types_medium = ['turn', 'on ramp']; const motos_danger_modifiers_medium = ['slight left', 'slight right', 'left', 'right']; const motos_danger_modifiers_high = ['sharp left', 'sharp right', 'uturn'];
+
+        function cancelarRuta() { 
+            rutaActiva = false; destinoCoors = null; datosRutaGuardada = null; indicePasoActual = 0;
+            localStorage.removeItem('destinoMoto'); localStorage.removeItem('coorsMoto'); localStorage.removeItem('pasosRutaMoto'); localStorage.removeItem('indicePasoMoto'); localStorage.removeItem('geometriaRutaMoto');
+            
+            map.getSource('route-source').setData({ type: 'FeatureCollection', features: [] }); 
+            document.getElementById('map').style.backgroundColor = 'transparent'; document.getElementById('hud-top-danger-meter').style.display = 'none'; 
+            document.getElementById('trip-totals-pill').style.display = 'none'; document.getElementById('panel-right-street').style.display = 'none'; 
+            
+            // Volvemos a mostrar la barra de búsqueda y el botón offline (si no está descargado)
+            document.getElementById('top-bar-container').style.display = 'flex'; 
+            document.getElementById('destination-input').value = ''; 
+            recenterManual(); 
+        }
+
+        function arrancarSeguimientoGPS() {
+            if (!navigator.geolocation) return;
+            
+            navigator.geolocation.watchPosition((position) => {
+                document.getElementById('dynamic-alert-banner').style.display = 'none';
+                miPosicion = [position.coords.longitude, position.coords.latitude];
+                const velocidad = position.coords.speed ? Math.round(position.coords.speed * 3.6) : 0;
+                
+                if (position.coords.heading !== null && !isNaN(position.coords.heading)) {
+                    let nuevoHeading = position.coords.heading; let dif = nuevoHeading - lastValidBearing;
+                    if (dif > 180) nuevoHeading -= 360; else if (dif < -180) nuevoHeading += 360;
+                    lastValidBearing = lastValidBearing + (nuevoHeading - lastValidBearing) * 0.4;
+                }
+                
+                document.getElementById('speed-value').innerText = velocidad; arrowMarker.setLngLat(miPosicion);
+                const arrowElement = document.querySelector('.nav-arrow-marker');
+                if (arrowElement) { arrowElement.style.transform = `rotate(${lastValidBearing}deg)`; }
+                
+                if (rutaActiva) { procesarLogicaOffline(); }
+                if (!mapaDesplazadoPorUsuario) { map.easeTo({ center: miPosicion, bearing: lastValidBearing, zoom: nivelZoomActual, offset: getCenterOffset(), duration: 800, easing: (t) => t * (2 - t) }); }
+            }, (err) => { document.getElementById('dynamic-alert-banner').style.display = 'block'; }, { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 });
+        }
+
+        if ('wakeLock' in navigator) {
+            let wakeLockInstance = null; const requestWakeLock = async () => { try { wakeLockInstance = await navigator.wakeLock.request('screen'); } catch (err) {} };
+            document.addEventListener('visibilitychange', () => { if (wakeLockInstance !== null && document.visibilityState === 'visible') { requestWakeLock(); } });
+            requestWakeLock();
+        }
+
+        window.onload = initNavigator;
+        if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js').catch(err => console.error(err)); }
+    </script>
+</body>
+</html>
