@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>MotoNav Roadbook Pro</title>
+    <title>CurvaaP</title>
     
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -51,7 +51,7 @@
 
         #hud-top-danger-meter {
             width: 100%; height: 22vh;
-            background: linear-gradient(to bottom, rgba(25,32,24,0.95) 60%, rgba(20,25,20,0.4) 85%, rgba(0,0,0,0));
+            background: #FF8C00; 
             display: none; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 10px 20px; border-radius: 0 0 22px 22px;
             transition: background 0.3s ease;
         }
@@ -66,17 +66,39 @@
         #hud-bottom-row { display: flex; justify-content: space-between; align-items: flex-end; width: 100%; }
 
         #panel-left-telemetry { display: flex; flex-direction: column; gap: 10px; pointer-events: auto; }
-        .speed-pill { display: flex; align-items: baseline; background: rgba(25, 30, 24, 0.95); padding: 10px 24px; border-radius: 22px; border: 1px solid #424d44; box-shadow: 0 6px 20px rgba(0,0,0,0.8); width: fit-content; }
+        .speed-pill { 
+            display: flex; align-items: baseline; 
+            background: #2a2a2a; 
+            border: 1px solid rgba(0, 255, 102, 0.4); 
+            padding: 10px 24px; border-radius: 22px; 
+            box-shadow: 0 6px 20px rgba(0,0,0,0.8); width: fit-content; 
+        }
         #speed-value { font-size: 46px; font-weight: 900; color: #00ff66; line-height: 1; }
         .speed-unit { font-size: 13px; color: #aaa; margin-left: 6px; font-weight: bold; text-transform: uppercase; }
 
-        #trip-totals-pill { display: none; background: rgba(25, 30, 24, 0.95); border: 1px solid #424d44; padding: 10px 18px; border-radius: 18px; box-shadow: 0 6px 20px rgba(0,0,0,0.7); font-weight: bold; font-size: 16px; color: #fff; gap: 12px; }
+        #trip-totals-pill { 
+            display: none; 
+            background: #2a2a2a; 
+            border: 1px solid rgba(0, 255, 102, 0.4); 
+            padding: 10px 18px; border-radius: 18px; 
+            box-shadow: 0 6px 20px rgba(0,0,0,0.7); 
+            font-weight: bold; font-size: 16px; color: #fff; gap: 12px; 
+        }
         #trip-totals-pill span { color: #00ff66; font-weight: 900; }
 
         #panel-right-street { display: none; flex-direction: column; align-items: flex-end; pointer-events: auto; max-width: 48%; }
-        .street-pill { background: rgba(25, 30, 24, 0.95); border: 2px solid #00ff66; padding: 12px 18px; border-radius: 18px; box-shadow: 0 6px 20px rgba(0,0,0,0.8); display: flex; align-items: center; gap: 12px; }
+        .street-pill { 
+            background: rgba(25, 30, 24, 0.95); 
+            border: 3px solid #00ff66; 
+            padding: 12px 18px; border-radius: 18px; 
+            box-shadow: 0 6px 20px rgba(0,0,0,0.8); 
+            display: flex; align-items: center; gap: 12px; 
+        }
         #next-street-name { font-size: 15px; font-weight: 800; color: #ffffff; text-transform: uppercase; text-align: right; letter-spacing: 0.4px; }
-        .btn-close-route { background: #ff3d00; color: white; border: none; width: 28px; height: 28px; border-radius: 50%; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .btn-close-route { 
+            background: #ff4500; 
+            color: white; border: none; width: 28px; height: 28px; border-radius: 50%; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; 
+        }
 
         .nav-arrow-marker { width: 55px; height: 55px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0px 8px 8px rgba(0,0,0,0.85)); }
         #gps-alert-banner { position: absolute; top: 20px; left: 20px; right: 20px; background: #ff3d00; color: white; padding: 15px; border-radius: 12px; text-align: center; font-weight: bold; z-index: 999; display: none; box-shadow: 0 4px 20px rgba(0,0,0,0.5); pointer-events: auto; }
@@ -123,7 +145,7 @@
 
             <div id="hud-top-danger-meter">
                 <div id="danger-chevrons-container"></div>
-                <div id="hud-curve-distance">-- m</div>
+                <div id="hud-curve-distance">25 m</div>
             </div>
 
             <div id="recenter-container">
@@ -137,15 +159,15 @@
                         <span class="speed-unit">km/h</span>
                     </div>
                     <div id="trip-totals-pill">
-                        <div id="total-distance-display">-- KM</div>
+                        <div id="total-distance-display">12.3 KM</div>
                         <div style="color: #444;">|</div>
-                        <div id="total-time-display">-- MIN</div>
+                        <div id="total-time-display">18 MIN</div>
                     </div>
                 </div>
                 
                 <div id="panel-right-street">
                     <div class="street-pill">
-                        <span id="next-street-name">Ruta</span>
+                        <span id="next-street-name">URBANIZACIÓN CORTIJO CONDE</span>
                         <button class="btn-close-route" onclick="cancelarRuta()">✕</button>
                     </div>
                 </div>
@@ -156,7 +178,6 @@
     <script src="https://unpkg.com/maplibre-gl@4.3.2/dist/maplibre-gl.js"></script>
 
     <script>
-        // Tu nuevo mapa Shortbread descargado de BBBike
         const PMTILES_URL = 'https://files.catbox.moe/3kj1tu.pmtiles';
         
         let map;
@@ -317,7 +338,7 @@
                 protocol.add(new pmtiles.PMTiles(PMTILES_URL));
             }
 
-            // DISEÑO INTEGRADO ADAPTADO AL ESQUEMA SHORTBREAD Y COLORES DE LA FOTO
+            // --- NUEVO ESTILO ACTUALIZADO BASADO EN LA FOTO ---
             const ESTILO_MINIMALISTA_OFFLINE = {
                 "version": 8,
                 "sources": {
@@ -325,9 +346,22 @@
                 },
                 "glyphs": "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
                 "layers": [
-                    // 1. Fondo de tierra base oscuro (como las montañas)
-                    { "id": "fondo-tierra", "type": "background", "paint": { "background-color": "#283027" } },
+                    // 1. Fondo de tierra base oscuro (gris-verdoso claro de las colinas)
+                    { "id": "fondo-tierra", "type": "background", "paint": { "background-color": "#5c705e" } },
                     
+                    // 1.5 Zonas de costa o arena (marrones)
+                    {
+                        "id": "capa-arena",
+                        "type": "fill",
+                        "source": "mapa-curvas-source",
+                        "source-layer": "landuse",
+                        "filter": ["in", "kind", "sand", "beach"],
+                        "paint": {
+                            "fill-color": "#8f7c63",
+                            "fill-opacity": 0.8
+                        }
+                    },
+
                     // 2. Bosques, parques y zonas naturales (verde más profundo)
                     {
                         "id": "capa-bosques",
@@ -336,16 +370,16 @@
                         "source-layer": "landuse",
                         "filter": ["in", "kind", "forest", "wood", "nature_reserve", "park", "orchard", "vineyard", "grass"],
                         "paint": {
-                            "fill-color": "#1a2219",
+                            "fill-color": "#4f6352",
                             "fill-opacity": 0.8
                         }
                     },
                     
                     // 3. Masas de agua y océanos (azul marino de la foto)
-                    { "id": "capa-agua", "type": "fill", "source": "mapa-curvas-source", "source-layer": "water", "paint": { "fill-color": "#182639" } },
-                    { "id": "capa-oceanos", "type": "fill", "source": "mapa-curvas-source", "source-layer": "ocean", "paint": { "fill-color": "#182639" } },
+                    { "id": "capa-agua", "type": "fill", "source": "mapa-curvas-source", "source-layer": "water", "paint": { "fill-color": "#2a4b7c" } },
+                    { "id": "capa-oceanos", "type": "fill", "source": "mapa-curvas-source", "source-layer": "ocean", "paint": { "fill-color": "#2a4b7c" } },
                     
-                    // 4. Zonas urbanas / pueblos (gris verdoso sutil)
+                    // 4. Zonas urbanas / pueblos (gris verdoso sutil un poco más saturado)
                     { 
                         "id": "capa-zonas-urbanas", 
                         "type": "fill", 
@@ -353,15 +387,15 @@
                         "source-layer": "landuse", 
                         "filter": ["in", "kind", "residential", "industrial", "commercial", "retail"],
                         "paint": { 
-                            "fill-color": "#424d44", 
-                            "fill-opacity": 0.45 
+                            "fill-color": "#657a68", 
+                            "fill-opacity": 0.6 
                         } 
                     },
                     
-                    // 5. Bloques de edificios / Casas
-                    { "id": "capa-edificios", "type": "fill", "source": "mapa-curvas-source", "source-layer": "buildings", "paint": { "fill-color": "#525f54", "fill-opacity": 0.6 } },
+                    // 5. Bloques de edificios / Casas (Gris azulado claro)
+                    { "id": "capa-edificios", "type": "fill", "source": "mapa-curvas-source", "source-layer": "buildings", "paint": { "fill-color": "#9eb1c0", "fill-opacity": 0.8 } },
                     
-                    // 6. Calles residenciales de fondo
+                    // 6. Calles residenciales de fondo (BLANCO FINITO)
                     { 
                         "id": "carreteras-secundarias", 
                         "type": "line", 
@@ -369,12 +403,13 @@
                         "source-layer": "streets",
                         "layout": { "line-join": "round", "line-cap": "round" }, 
                         "paint": { 
-                            "line-color": "#384237", 
-                            "line-width": ["interpolate", ["linear"], ["zoom"], 10, 0.8, 15, 2.5]
+                            "line-color": "#ffffff", 
+                            "line-width": ["interpolate", ["linear"], ["zoom"], 10, 0.5, 15, 1.5],
+                            "line-opacity": 0.8
                         } 
                     },
 
-                    // 7. Carreteras principales / Nacionales
+                    // 7. Carreteras principales / Nacionales (BLANCO)
                     { 
                         "id": "carreteras-principales", 
                         "type": "line", 
@@ -383,12 +418,13 @@
                         "filter": ["in", "kind", "primary", "secondary", "tertiary"],
                         "layout": { "line-join": "round", "line-cap": "round" }, 
                         "paint": { 
-                            "line-color": "#4a5649", 
-                            "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.5, 15, 4.5]
+                            "line-color": "#ffffff", 
+                            "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.5, 15, 3.5],
+                            "line-opacity": 0.9
                         } 
                     },
 
-                    // 8. Autovías y Autopistas
+                    // 8. Autovías y Autopistas (BLANCO)
                     { 
                         "id": "autovias", 
                         "type": "line", 
@@ -397,12 +433,13 @@
                         "filter": ["==", "kind", "motorway"],
                         "layout": { "line-join": "round", "line-cap": "round" }, 
                         "paint": { 
-                            "line-color": "#586757", 
-                            "line-width": ["interpolate", ["linear"], ["zoom"], 10, 2.5, 15, 6]
+                            "line-color": "#ffffff", 
+                            "line-width": ["interpolate", ["linear"], ["zoom"], 10, 2.5, 15, 5],
+                            "line-opacity": 1.0
                         } 
                     },
 
-                    // 9. Nombres de pueblos, ciudades y urbanizaciones (Letras blancas nítidas)
+                    // 9. Nombres de pueblos, ciudades y urbanizaciones
                     {
                         "id": "nombres-ciudades",
                         "type": "symbol",
@@ -417,7 +454,8 @@
                         },
                         "paint": {
                             "text-color": "#ffffff",
-                            "text-halo-color": "rgba(40, 48, 39, 0.85)",
+                            // Halo verde oscuro para dar contraste y legibilidad con el fondo claro
+                            "text-halo-color": "rgba(40, 50, 42, 0.85)",
                             "text-halo-width": 2
                         }
                     }
@@ -480,12 +518,12 @@
             map.addLayer({ 
                 id: 'route-casing', type: 'line', source: 'route-source', 
                 layout: { 'line-join': 'round', 'line-cap': 'round' }, 
-                paint: { 'line-color': '#00ff66', 'line-width': 12, 'line-opacity': 0.95 } 
+                paint: { 'line-color': '#00ff66', 'line-width': 18, 'line-opacity': 0.95 } 
             });
             map.addLayer({ 
                 id: 'route-core', type: 'line', source: 'route-source', 
                 layout: { 'line-join': 'round', 'line-cap': 'round' }, 
-                paint: { 'line-color': '#ffffff', 'line-width': 5 } 
+                paint: { 'line-color': '#ffffff', 'line-width': 6 } 
             });
         }
 
@@ -578,7 +616,7 @@
             const proximaCalleInfo = proximoGiro.name || proximoGiro.ref || "";
             
             const esAutovia = /A-\d|AP-\d|Autovía|Autopista/i.test(calleActualInfo) || /A-\d|AP-\d|Autovía|Autopista/i.test(proximaCalleInfo);
-            document.getElementById('next-street-name').innerText = proximaCalleInfo || "Tramo Continuo";
+            document.getElementById('next-street-name').innerText = (proximaCalleInfo || "Tramo Continuo").toUpperCase();
 
             const hudTop = document.getElementById('hud-top-danger-meter');
             const hudDistanceEl = document.getElementById('hud-curve-distance');
