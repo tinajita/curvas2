@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>CurvaaP</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3069/3069170.png">
+    
+    <link href="https://unpkg.com/maplibre-gl@4.3.2/dist/maplibre-gl.css" rel="stylesheet" />
+    <script src="https://unpkg.com/pmtiles@3.2.0/dist/pmtiles.js"></script>
+    
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        
+        body, html { height: 100dvh; background-color: #2a2a2a; color: #fff; overflow: hidden; }
+        #navigator-container { display: flex; flex-direction: column; height: 100dvh; position: relative; width: 100%; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; height: 100%; z-index: 1; }
+        
+        #ui-overlay {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 10; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between;
+        }
+
+        /* 1. HUD SUPERIOR: 25% de la pantalla, siempre ceñido arriba */
+        #hud-top-danger-meter {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            width: 100%; height: 25vh;
+            background: linear-gradient(to bottom, rgba(25,32,24,0.98) 60%, rgba(20,25,20,0.6) 85%, rgba(0,0,0,0));
+            display: none; flex-direction: column; align-items: center; justify-content: center; gap: 4px; 
+            padding-top: env(safe-area-inset-top, 20px);
+            border-radius: 0 0 25px 25px;
+            transition: background 0.3s ease;
+            z-index: 100;
+            pointer-events: auto;
+        }
+
+        #danger-chevrons-container { display: flex; align-items: center; justify-content: center; gap: 12px; height: 80px; }
+        .danger-chevron { width: 60px; height: 80px; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.95)); }
+        #hud-curve-distance { font-size: 64px; font-weight: 900; color: #ffffff; letter-spacing: -2px; line-height: 1; text-shadow: 0 4px 12px rgba(0,0,0,1); }
+
+        #top-bar-container { width: 100%; padding: 12px; padding-top: calc(env(safe-area-inset-top, 10px) + 5px); pointer-events: auto; z-index: 40; }
+        #search-block { display: flex; gap: 8px; background: rgba(25,30,24,0.95); padding: 6px; border-radius: 14px; border: 1px solid #424d44; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+        #destination-input { flex: 1; background: transparent; border: none; padding: 10px 14px; color: #fff; font-size: 15px; font-weight: 600; }
+        #destination-input::placeholder { color: #768a7b; }
+        #destination-input:focus { outline: none; }
+        
+        .btn-action { background: #00ff66; border: none; color: #000; padding: 0 20px; border-radius: 10px; font-weight: 800; font-size: 14px; cursor: pointer; }
+
+        #recenter-container { position: absolute; top: 12vh; left: 50%; transform: translateX(-50%); pointer-events: auto; z-index: 30; display: none; }
+        .btn-recenter { background: #ff3333; border: 1px solid #ff6666; color: #fff; padding: 10px 20px; border-radius: 20px; font-weight: 700; font-size: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.4); cursor: pointer; }
+
+        /* 2. BOTONES FLOTANTES ABAJO A LA DERECHA (Download + Fullscreen alineados) */
+        #floating-bottom-right {
+            position: absolute;
+            bottom: calc(env(safe-area-inset-bottom, 12px) + 95px);
+            right: 15px;
+            display: flex;
+            gap: 10px;
+            pointer-events: auto;
+            z-index: 50;
+            align-items: center;
+        }
+
+        #btn-fullscreen {
+            background: rgba(25, 30, 24, 0.95); border: 1px solid #424d44; border-bottom: 3px solid #00ff66;
+            color: #fff; width: 46px; height: 46px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; box-shadow: 0 6px 30px rgba(0,0,0,0.8); flex-shrink: 0; transition: all 0.2s;
+        }
+        #btn-fullscreen svg { width: 22px; height: 22px; stroke: #fff; stroke-width: 2.5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+        #btn-fullscreen:active { background: #384237; }
+
+        #btn-download-offline {
+            display: none;
+            background: rgba(25, 30, 24, 0.95); border: 1px solid #424d44; border-bottom: 3px solid #00ff66;
+            color: #00ff66; padding: 0 16px; height: 46px; border-radius: 23px; font-weight: 800; font-size: 13px; 
+            box-shadow: 0 6px 30px rgba(0,0,0,0.8); text-transform: uppercase; cursor: pointer; 
+            transition: all 0.2s ease; letter-spacing: 0.5px; white-space: nowrap;
+        }
+        #btn-download-offline:active { background: #384237; }
+
+        /* TELEMETRÍA Y BARRA INFERIOR */
+        #hud-bottom-row { width: 100%; padding: 12px; padding-bottom: calc(env(safe-area-inset-bottom, 10px) + 10px); display: flex; flex-direction: column; gap: 10px; pointer-events: auto; z-index: 40; margin-top: auto; }
+        #telemetry-street-container { display: flex; gap: 12px; width: 100%; }
+        #panel-left-telemetry { background: rgba(25,30,24,0.95); border: 1px solid #424d44; border-bottom: 3px solid #424d44; border-radius: 18px; padding: 12px; display: flex; flex-direction: column; justify-content: center; align-items: center; min-width: 90px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+        #speed-value { font-size: 38px; font-weight: 900; color: #00ff66; line-height: 1; }
+        #speed-unit { font-size: 11px; font-weight: 700; color: #768a7b; margin-top: 2px; }
+        
+        #panel-right-street { flex: 1; background: rgba(25,30,24,0.95); border: 1px solid #424d44; border-bottom: 3px solid #424d44; border-radius: 18px; padding: 0 18px; display: flex; align-items: center; box-shadow: 0 8px 32px rgba(0,0,0,0.5); overflow: hidden; }
+        #street-name-text { font-size: 18px; font-weight: 800; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* BANNERS DE INSTALACIÓN PWA (iPhone / Android) */
+        .pwa-install-banner {
+            position: absolute; bottom: 20px; left: 15px; right: 15px;
+            background: rgba(20, 25, 20, 0.98); border: 2px solid #00ff66; border-radius: 16px;
+            padding: 16px; display: none; gap: 12px; flex-direction: column;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.9); z-index: 9999; pointer-events: auto;
+        }
+        .pwa-install-banner p { font-size: 14px; font-weight: 600; color: #fff; line-height: 1.4; }
+        .pwa-install-banner .instructions { font-size: 13px; color: #00ff66; margin-top: 4px; display: flex; align-items: center; gap: 6px; }
+        .pwa-close-btn { position: absolute; top: 10px; right: 12px; background: transparent; border: none; color: #768a7b; font-size: 16px; cursor: pointer; }
+        .btn-pwa-action { background: #00ff66; border: none; color: #000; padding: 12px; border-radius: 10px; font-weight: 800; font-size: 14px; text-align: center; cursor: pointer; margin-top: 6px; }
+
+        /* ADAPTACIÓN HORIZONTAL (LANDSCAPE) */
+        @media (orientation: landscape) {
+            #hud-top-danger-meter { 
+                height: 25vh;
+                flex-direction: row; justify-content: space-between; padding: 0 60px; 
+                padding-top: env(safe-area-inset-top, 10px); border-radius: 0 0 20px 20px; 
+            }
+            #danger-chevrons-container { height: auto; gap: 16px; }
+            .danger-chevron { width: 55px; height: 75px; }
+            #hud-curve-distance { font-size: 58px; }
+            #recenter-container { top: 28vh; }
+            #floating-bottom-right { bottom: calc(env(safe-area-inset-bottom, 5px) + 85px); right: 20px; }
+        }
+
+        .nav-arrow-marker { width: 45px; height: 45px; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.6)); transition: transform 0.3s ease-out; }
+    </style>
+</head>
+<body>
+
+    <div id="navigator-container">
+        <div id="map"></div>
+        
+        <div id="ui-overlay">
+            
+            <div id="top-bar-container">
+                <div id="search-block">
+                    <input type="text" id="destination-input" placeholder="¿A dónde vamos con la moto?...">
+                    <button class="btn-action" onclick="fijarRutaDestino()">Ir</button>
+                </div>
+            </div>
+
+            <div id="hud-top-danger-meter">
+                <div id="danger-chevrons-container"></div>
+                <div id="hud-curve-distance">-- m</div>
+            </div>
+
+            <div id="recenter-container">
+                <button class="btn-recenter" onclick="recenterManual()">✕ Recentrar</button>
+            </div>
+
+            <div id="floating-bottom-right">
+                <button id="btn-download-offline" onclick="descargarMapaOffline()">⬇️ Mapa Offline</button>
+                <button id="btn-fullscreen" onclick="toggleFullScreen()" title="Pantalla Completa">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <div id="hud-bottom-row">
+                <div id="telemetry-street-container">
+                    <div id="panel-left-telemetry">
+                        <div id="speed-value">0</div>
+                        <div id="speed-unit">KM/H</div>
+                    </div>
+                    <div id="panel-right-street">
+                        <div id="street-name-text">Localizando ruta...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="ios-install-banner" class="pwa-install-banner">
+        <button class="pwa-close-btn" onclick="cerrarBannerPWA('ios-install-banner')">✕</button>
+        <p><strong>Instala CurvaaP en tu iPhone</strong> para usar la pantalla completa real sin barras del navegador.</p>
+        <div class="instructions">
+            <span>1. Pulsa el botón compartir</span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00ff66" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>
+        </div>
+        <div class="instructions">2. Selecciona <strong>"Añadir a la pantalla de inicio"</strong>.</div>
+    </div>
+
+    <div id="android-install-banner" class="pwa-install-banner">
+        <button class="pwa-close-btn" onclick="cerrarBannerPWA('android-install-banner')">✕</button>
+        <p>Instala la aplicación en tu dispositivo para navegar de forma fluida y en pantalla completa.</p>
+        <button class="btn-pwa-action" onclick="instalarPWAAndroid()">Instalar App</button>
+    </div>
+
+    <script>
+        let map;
+        let miPosicion = [0, 0];
+        let lastValidBearing = 0;
+        let mapaDesplazadoPorUsuario = false;
+        let nivelZoomActual = 16;
+        let rutaActiva = false;
+        let deferredPrompt = null;
+
+        const ICONOS_HUD = {
+            autovia: '<span style="font-size:42px; font-weight:900; color:#00ff66;">AUTOVÍA</span>',
+            rotonda: '<span style="font-size:42px; font-weight:900; color:#33b5e5;">ROTONDA</span>',
+            cruce: '<span style="font-size:42px; font-weight:900; color:#ffbb33;">CRUCE</span>'
+        };
+
+        const CONFIG_PELIGRO = {
+            low: { paneles: 1 },
+            medium: { paneles: 2 },
+            high: { paneles: 3 }
+        };
+
+        // Estilo con soporte completo para Mar, Lagos (water) y Ríos/Arroyos (waterway)
+        const ESTILO_MINIMALISTA_OFFLINE = {
+            "version": 8,
+            "sources": {
+                "mapa-curvas-source": {
+                    "type": "vector",
+                    "tiles": ["tiles/{z}/{x}/{y}.pbf"],
+                    "minzoom": 0, "maxzoom": 14
+                }
+            },
+            "layers": [
+                { "id": "fondo-tierra", "type": "background", "paint": { "background-color": "#192018" } },
+                { "id": "capa-agua", "type": "fill", "source": "mapa-curvas-source", "source-layer": "water", "paint": { "fill-color": "#28537A" } },
+                // NUEVA CAPA: Visualización de ríos y lagos pequeños definidos como líneas de agua
+                { "id": "capa-rios", "type": "line", "source": "mapa-curvas-source", "source-layer": "waterway", "paint": { "line-color": "#28537A", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1, 15, 4] } },
+                { "id": "capa-carreteras", "type": "line", "source": "mapa-curvas-source", "source-layer": "transportation", "paint": { "line-color": "#2a3529", "line-width": 2 } },
+                { "id": "capa-curvas-nivel", "type": "line", "source": "mapa-curvas-source", "source-layer": "contour", "paint": { "line-color": "#384537", "line-width": 0.8 } }
+            ]
+        };
+
+        function initNavigator() {
+            const protocol = new pmtiles.Protocol();
+            maplibreGL.addProtocol("pmtiles", protocol.tile);
+
+            map = new maplibregl.Map({
+                container: 'map',
+                style: ESTILO_MINIMALISTA_OFFLINE,
+                center: [-3.70379, 40.41678],
+                zoom: 3,
+                pitch: 60,
+                bearing: 0,
+                maxPitch: 85,
+                attributionControl: false
+            });
+
+            map.on('dragstart', () => { mapaDesplazadoPorUsuario = true; document.getElementById('recenter-container').style.display = 'block'; });
+            map.on('zoomend', () => { nivelZoomActual = map.getZoom(); });
+
+            startTracking();
+            verificarInstalacionPWA();
+        }
+
+        function startTracking() {
+            const arrowElement = document.createElement('div');
+            arrowElement.className = 'nav-arrow-marker';
+            arrowElement.innerHTML = `<svg viewBox="0 0 100 100" width="45" height="45"><polygon points="50,5 95,95 50,75 5,95" fill="#00ff66" stroke="#000000" stroke-width="4" stroke-linejoin="round"/></svg>`;
+            
+            const arrowMarker = new maplibregl.Marker({ element: arrowElement, rotationAlignment: 'map', pitchAlignment: 'map' })
+                .setLngLat([-3.70379, 40.41678])
+                .addTo(map);
+
+            navigator.geolocation.watchPosition((pos) => {
+                miPosicion = [pos.coords.longitude, pos.coords.latitude];
+                const velocidad = pos.coords.speed ? Math.round(pos.coords.speed * 3.6) : 0;
+                let nuevoHeading = pos.coords.heading;
+
+                if (nuevoHeading !== null && !isNaN(nuevoHeading)) {
+                    let diff = nuevoHeading - lastValidBearing;
+                    while (diff < -180) diff += 360;
+                    while (diff > 180) diff -= 360;
+                    lastValidBearing = lastValidBearing + diff * 0.4;
+                }
+                
+                document.getElementById('speed-value').innerText = velocidad; 
+                arrowMarker.setLngLat(miPosicion);
+                
+                if (arrowElement) { arrowElement.style.transform = `rotate(${lastValidBearing}deg)`; }
+                if (rutaActiva) { procesarLogicaOffline(); }
+                
+                if (!mapaDesplazadoPorUsuario) { 
+                    map.easeTo({ center: miPosicion, bearing: lastValidBearing, zoom: nivelZoomActual, duration: 800, easing: (t) => t * (2 - t) }); 
+                }
+            }, (err) => { console.error("Error obteniendo ubicación", err); }, { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 });
+        }
+
+        function recenterManual() {
+            mapaDesplazadoPorUsuario = false;
+            document.getElementById('recenter-container').style.display = 'none';
+            map.easeTo({ center: miPosicion, bearing: lastValidBearing, zoom: 16, duration: 1000 });
+        }
+
+        // CONTROL DE PANTALLA COMPLETA INTEGRADO CON WAKELOCK (PREVENCIÓN DE APAGADO)
+        async function toggleFullScreen() {
+            const elem = document.documentElement;
+            try {
+                if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                    if (elem.requestFullscreen) {
+                        await elem.requestFullscreen();
+                    } else if (elem.webkitRequestFullscreen) { // Compatibilidad con motores WebKit / Safari antiguos
+                        await elem.webkitRequestFullscreen();
+                    }
+                    // Forzar activación del bloqueo de apagado al entrar en fullscreen
+                    if (typeof requestWakeLock === 'function') requestWakeLock();
+                } else {
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen();
+                    } else if (document.webkitExitFullscreen) {
+                        document.webkitExitFullscreen();
+                    }
+                }
+            } catch (err) {
+                console.log("Modo inmersivo activado mediante entorno Standalone/PWA.");
+            }
+        }
+
+        // DETECCIÓN Y LOGICA DE INSTALACIÓN PWA (IPHONE Y ANDROID)
+        function verificarInstalacionPWA() {
+            const isIos = /iPhone|iPad|iPod/.test(navigator.userAgent) && !window.MSStream;
+            const isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+
+            if (!isStandalone) {
+                if (isIos) {
+                    // Si es un iPhone y no está guardado en la pantalla de inicio, se muestra la ayuda guiada
+                    document.getElementById('ios-install-banner').style.display = 'flex';
+                }
+            }
+        }
+
+        // Capturador del evento de instalación nativo de Android/Chrome
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+            if (!isStandalone) {
+                document.getElementById('android-install-banner').style.display = 'flex';
+            }
+        });
+
+        function instalarPWAAndroid() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('El usuario ha instalado la aplicación.');
+                    }
+                    deferredPrompt = null;
+                    cerrarBannerPWA('android-install-banner');
+                });
+            }
+        }
+
+        function cerrarBannerPWA(id) {
+            document.getElementById(id).style.display = 'none';
+        }
+
+        // RENDERIZADO DEL HUD SUPERIOR SIN CAMBIOS DE COLOR EN EL FONDO DEL MAPA
+        function renderizarHUDPeligro(direccion, peligrosidad, tipoManiobra, esAutovia) {
+            const container = document.getElementById('danger-chevrons-container');
+            const hudTop = document.getElementById('hud-top-danger-meter');
+            container.innerHTML = ''; 
+
+            const GRADIENTES = {
+                low: 'linear-gradient(to bottom, rgba(0, 180, 50, 0.98) 60%, rgba(0, 180, 50, 0.4) 85%, rgba(0,0,0,0))',      
+                medium: 'linear-gradient(to bottom, rgba(240, 120, 0, 0.98) 60%, rgba(240, 120, 0, 0.4) 85%, rgba(0,0,0,0))', 
+                high: 'linear-gradient(to bottom, rgba(230, 0, 0, 0.98) 60%, rgba(230, 0, 0, 0.4) 85%, rgba(0,0,0,0))'         
+            };
+
+            if (esAutovia && peligrosidad !== 'high') {
+                hudTop.style.background = GRADIENTES.low;
+                container.innerHTML = ICONOS_HUD.autovia; return;
+            }
+            if (tipoManiobra.includes('roundabout') || tipoManiobra.includes('rotary')) {
+                hudTop.style.background = GRADIENTES.low;
+                container.innerHTML = ICONOS_HUD.rotonda; return;
+            }
+            if (tipoManiobra === 'intersection') {
+                hudTop.style.background = GRADIENTES.low;
+                container.innerHTML = ICONOS_HUD.cruce; return;
+            }
+
+            const config = CONFIG_PELIGRO[peligrosidad] || CONFIG_PELIGRO.low;
+            if (peligrosidad === 'medium') {
+                hudTop.style.background = GRADIENTES.medium;
+            } else if (peligrosidad === 'high') {
+                hudTop.style.background = GRADIENTES.high;
+            } else {
+                hudTop.style.background = GRADIENTES.low;
+            }
+
+            const scaleX = (direccion === 'izq') ? -1 : 1;
+            const svgChevron = `<svg class="danger-chevron" style="transform: scaleX(${scaleX});" viewBox="0 0 24 24" fill="none"><path d="M10 5L17 12L10 19" stroke="#ffffff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+            for (let i = 0; i < config.paneles; i++) { container.innerHTML += svgChevron; }
+        }
+
+        function fijarRutaDestino() {
+            rutaActiva = true;
+            document.getElementById('hud-top-danger-meter').style.display = 'flex';
+            document.getElementById('btn-download-offline').style.display = 'block';
+            // Simulación inicial de testeo del HUD
+            renderizarHUDPeligro('der', 'medium', 'none', false);
+            document.getElementById('street-name-text').innerText = "Ruta fijada correctamente";
+        }
+
+        function descargarMapaOffline() {
+            alert("Iniciando descarga de teselas offline para la ruta actual...");
+        }
+
+        function procesarLogicaOffline() {
+            // Tu lógica offline de procesamiento de coordenadas
+        }
+
+        // CONTROL WAKELOCK (PANTALLA SIEMPRE ENCENDIDA)
+        if ('wakeLock' in navigator) {
+            let wakeLockInstance = null; 
+            const requestWakeLock = async () => { try { wakeLockInstance = await navigator.wakeLock.request('screen'); } catch (err) {} };
+            document.addEventListener('visibilitychange', () => { if (wakeLockInstance !== null && document.visibilityState === 'visible') { requestWakeLock(); } });
+            requestWakeLock();
+        }
+
+        window.onload = initNavigator;
+        if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js').catch(err => console.error(err)); }
+    </script>
+</body>
+</html>
