@@ -16,8 +16,8 @@
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         
-        /* touch-action: none evita que el navegador haga zoom pellizcando la interfaz fuera del mapa */
-        body, html { height: 100dvh; background-color: #2a2a2a; color: #fff; overflow: hidden; touch-action: none; }
+        /* touch-action: none impide por completo que el navegador intente hacer zoom a la web */
+        body, html { height: 100dvh; background-color: #22252a; color: #fff; overflow: hidden; touch-action: none; -webkit-text-size-adjust: none; }
         #navigator-container { display: flex; flex-direction: column; height: 100dvh; position: relative; }
         
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; transition: background-color 0.3s ease; }
@@ -66,10 +66,11 @@
         }
         .btn-cancelar-descarga:active { background: #333; border-color: #aaa; color: #fff; }
 
+        /* Capa UI Completa de Borde a Borde sin Margen */
         #ui-overlay { 
             position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 10; 
-            pointer-events: none; display: flex; flex-direction: column; 
-            justify-content: space-between; padding: 0; /* padding eliminado para bordes completos */
+            pointer-events: none; display: flex; flex-direction: column; padding: 0;
+            touch-action: none;
         }
 
         /* Contenedor Superior (Buscador) */
@@ -83,14 +84,14 @@
         #destination-input:focus { border-color: #00ff66; }
         .btn-action { background: #00ff66; color: #000; border: none; padding: 0 18px; font-size: 14px; font-weight: bold; border-radius: 25px; cursor: pointer; text-transform: uppercase; flex-shrink: 0; }
 
-        /* HUD corregido para ocupar todo el ancho */
+        /* HUD Superior de Curvas (Borde a Borde Completo) */
         #hud-top-danger-meter {
             width: 100%; height: 22vh;
-            background: linear-gradient(to bottom, rgba(25,32,24,0.95) 60%, rgba(20,25,20,0.4) 85%, rgba(0,0,0,0));
+            background: linear-gradient(to bottom, rgba(20,24,20,0.98) 65%, rgba(15,18,15,0.5) 88%, rgba(0,0,0,0));
             display: none; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 10px 20px; 
-            border-radius: 0; /* Eliminado para cubrir los bordes */
+            border-radius: 0;
             transition: background 0.3s ease;
-            position: absolute; top: 0; left: 0; right: 0; /* Fuerza posición absoluta en la parte superior */
+            position: absolute; top: 0; left: 0; right: 0;
         }
 
         #danger-chevrons-container { display: flex; align-items: center; justify-content: center; gap: 8px; height: 70px; }
@@ -100,7 +101,14 @@
         #recenter-container { position: absolute; top: 25vh; right: 15px; display: none; pointer-events: auto; }
         .btn-recenter { background: #00ff66; color: #000; border: none; padding: 10px 18px; font-size: 12px; font-weight: bold; border-radius: 20px; text-transform: uppercase; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
 
-        #hud-bottom-row { display: flex; justify-content: space-between; align-items: flex-end; width: 100%; padding: 0 14px calc(env(safe-area-inset-bottom, 12px) + 38px) 14px; }
+        /* Fila Inferior con margin-top: auto (Soluciona la desaparición del panel inferior) */
+        #hud-bottom-row { 
+            margin-top: auto;
+            display: flex; justify-content: space-between; align-items: flex-end; width: 100%; 
+            padding: 0 14px calc(env(safe-area-inset-bottom, 12px) + 24px) 14px; 
+            pointer-events: none;
+            touch-action: none;
+        }
         #panel-left-telemetry { display: flex; flex-direction: column; gap: 10px; pointer-events: auto; }
         
         .speed-pill { display: flex; align-items: center; background: rgba(25, 30, 24, 0.95); padding: 10px 20px; border-radius: 22px; border: 1px solid #424d44; box-shadow: 0 6px 20px rgba(0,0,0,0.8); width: fit-content; }
@@ -109,28 +117,33 @@
         .speed-unit { font-size: 13px; color: #aaa; margin-left: 6px; font-weight: bold; text-transform: uppercase; }
         
         .speed-limit-sign {
-            width: 34px; height: 34px; background-color: white; border: 4px solid #cc0000; border-radius: 50%;
-            display: flex; justify-content: center; align-items: center; color: black; font-weight: 900; font-size: 14px;
+            width: 36px; height: 36px; background-color: white; border: 4px solid #cc0000; border-radius: 50%;
+            display: flex; justify-content: center; align-items: center; color: black; font-weight: 900; font-size: 15px;
             margin-left: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.5); font-family: 'Arial', sans-serif;
         }
 
-        #trip-totals-pill { display: none; background: rgba(25, 30, 24, 0.95); border: 1px solid #424d44; padding: 10px 18px; border-radius: 18px; box-shadow: 0 6px 20px rgba(0,0,0,0.7); font-weight: bold; font-size: 16px; color: #fff; gap: 12px; }
+        /* Cuánto falta para el destino */
+        #trip-totals-pill { display: none; background: rgba(25, 30, 24, 0.95); border: 1px solid #424d44; padding: 10px 18px; border-radius: 18px; box-shadow: 0 6px 20px rgba(0,0,0,0.7); font-weight: bold; font-size: 16px; color: #fff; gap: 12px; align-items: center; }
         #trip-totals-pill span { color: #00ff66; font-weight: 900; }
 
         /* Controles Inferiores Derechos */
         #panel-right-group { display: flex; flex-direction: column; align-items: flex-end; gap: 12px; pointer-events: none; max-width: 48%; }
+        
+        /* Calle actual/próxima por la que vas */
         #panel-right-street { display: none; pointer-events: auto; }
         .street-pill { background: rgba(25, 30, 24, 0.95); border: 2px solid #00ff66; padding: 12px 18px; border-radius: 18px; box-shadow: 0 6px 20px rgba(0,0,0,0.8); display: flex; align-items: center; gap: 12px; }
         #next-street-name { font-size: 15px; font-weight: 800; color: #ffffff; text-transform: uppercase; text-align: right; letter-spacing: 0.4px; }
         .btn-close-route { background: #ff3d00; color: white; border: none; width: 28px; height: 28px; border-radius: 50%; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 
+        /* Botones de acción */
         #bottom-right-actions { display: flex; gap: 10px; pointer-events: auto; }
         .btn-bottom-icon {
             background: rgba(25, 30, 24, 0.95); border: 1px solid #424d44; border-bottom: 3px solid #00ff66;
-            width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            width: 46px; height: 46px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
             cursor: pointer; box-shadow: 0 6px 30px rgba(0,0,0,0.8); transition: all 0.2s; flex-shrink: 0;
+            touch-action: none;
         }
-        .btn-bottom-icon svg { width: 20px; height: 20px; stroke: #fff; stroke-width: 2.5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+        .btn-bottom-icon svg { width: 22px; height: 22px; stroke: #fff; stroke-width: 2.5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
         .btn-bottom-icon:active { background: #384237; }
         #btn-download-offline { border-bottom-color: #00ff66; display: none; }
         #btn-download-offline svg { stroke: #00ff66; }
@@ -139,20 +152,30 @@
         
         #dynamic-alert-banner { position: absolute; top: 20px; left: 20px; right: 20px; background: #ff3d00; color: white; padding: 15px; border-radius: 12px; text-align: center; font-weight: bold; z-index: 999; display: none; box-shadow: 0 4px 20px rgba(0,0,0,0.5); pointer-events: auto; transition: background 0.3s ease; }
 
+        /* Modo Horizontal (Apaisado) */
         @media (orientation: landscape) {
             #top-bar-container { padding: calc(env(safe-area-inset-top, 4px) + 10px) 14px 0 14px; }
-            #hud-bottom-row { padding: 0 14px calc(env(safe-area-inset-bottom, 0px) + 32px) 14px; }
-            /* HUD en horizontal modificado a 25vh y bordes planos */
-            #hud-top-danger-meter { height: 25vh; flex-direction: row; justify-content: space-between; padding: 0 40px; border-radius: 0; }
-            #danger-chevrons-container { height: 38px; gap: 12px; }
-            .danger-chevron { width: 26px; height: 38px; }
-            #hud-curve-distance { font-size: 34px; }
-            #recenter-container { top: 65px; }
+            #hud-bottom-row { padding: 0 14px calc(env(safe-area-inset-bottom, 0px) + 20px) 14px; }
+            
+            /* HUD en horizontal fijado exactamente al 25% de alto y sin recortes laterales */
+            #hud-top-danger-meter { 
+                height: 25vh; 
+                flex-direction: row; 
+                justify-content: space-between; 
+                padding: 0 40px; 
+                border-radius: 0; 
+                top: 0; left: 0; right: 0;
+            }
+            #danger-chevrons-container { height: 42px; gap: 12px; }
+            .danger-chevron { width: 28px; height: 42px; }
+            #hud-curve-distance { font-size: 38px; }
+            #recenter-container { top: 28vh; }
+            
             #hud-bottom-row { align-items: center; }
             #panel-left-telemetry { flex-direction: row; align-items: center; gap: 12px; }
             .speed-pill { padding: 6px 16px; }
-            #speed-value { font-size: 32px; }
-            .speed-limit-sign { width: 26px; height: 26px; font-size: 11px; border-width: 3px; }
+            #speed-value { font-size: 34px; }
+            .speed-limit-sign { width: 28px; height: 28px; font-size: 12px; border-width: 3px; margin-left: 10px; }
             #trip-totals-pill { padding: 8px 14px; font-size: 14px; }
             .street-pill { padding: 8px 14px; }
             #next-street-name { font-size: 13px; }
@@ -256,6 +279,14 @@
                 const btnFull = document.getElementById('btn-fullscreen');
                 if (btnFull) btnFull.style.display = 'none';
             }
+            
+            // Prevención estricta de zoom de interfaz por gestos erróneos en los paneles táctiles
+            document.getElementById('ui-overlay').addEventListener('touchstart', (e) => {
+                if (e.touches.length > 1) { e.preventDefault(); }
+            }, { passive: false });
+            document.getElementById('ui-overlay').addEventListener('touchmove', (e) => {
+                if (e.touches.length > 1) { e.preventDefault(); }
+            }, { passive: false });
         });
 
         const PMTILES_URL = 'https://files.catbox.moe/3kj1tu.pmtiles';
@@ -289,17 +320,11 @@
         function toggleFullScreen() {
             if (!document.fullscreenElement && !document.webkitFullscreenElement) {
                 const elem = document.documentElement;
-                if (elem.requestFullscreen) {
-                    elem.requestFullscreen();
-                } else if (elem.webkitRequestFullscreen) {
-                    elem.webkitRequestFullscreen();
-                }
+                if (elem.requestFullscreen) { elem.requestFullscreen(); } 
+                else if (elem.webkitRequestFullscreen) { elem.webkitRequestFullscreen(); }
             } else {
-                if (document.exitFullscreen) {
-                    document.exitFullscreen();
-                } else if (document.webkitExitFullscreen) {
-                    document.webkitExitFullscreen();
-                }
+                if (document.exitFullscreen) { document.exitFullscreen(); } 
+                else if (document.webkitExitFullscreen) { document.webkitExitFullscreen(); }
             }
         }
 
@@ -321,7 +346,7 @@
             return "400 m";
         }
 
-        function estimarVelocidadMaxima(calleInfo, esAutovia) {
+        function ponerEstiloVelocidadMaxima(calleInfo, esAutovia) {
             const nombre = calleInfo ? calleInfo.toUpperCase() : "";
             if (esAutovia || nombre.includes("AP-") || nombre.includes("A-")) return "120";
             if (nombre.includes("N-") || nombre.includes("NACIONAL")) return "90";
@@ -332,15 +357,10 @@
 
         function mostrarNotificacionPersonalizada(mensaje, colorFondo, colorTexto) {
             const banner = document.getElementById('dynamic-alert-banner');
-            banner.innerText = mensaje;
-            banner.style.background = colorFondo;
-            banner.style.color = colorTexto;
+            banner.innerText = mensaje; banner.style.background = colorFondo; banner.style.color = colorTexto;
             banner.style.display = 'block';
             setTimeout(() => {
-                banner.style.display = 'none';
-                banner.innerText = '⚠️ GPS sin precisión.';
-                banner.style.background = '#ff3d00';
-                banner.style.color = 'white';
+                banner.style.display = 'none'; banner.innerText = '⚠️ GPS sin precisión.'; banner.style.background = '#ff3d00'; banner.style.color = 'white';
             }, 4000);
         }
 
@@ -359,10 +379,7 @@
             const barra = document.getElementById('download-bar');
             const progreso = document.getElementById('download-progress');
             
-            overlay.style.display = 'flex';
-            barra.style.width = '0%';
-            progreso.innerText = '0%';
-            
+            overlay.style.display = 'flex'; barra.style.width = '0%'; progreso.innerText = '0%';
             abortController = new AbortController();
 
             try {
@@ -371,18 +388,15 @@
 
                 const tamanoTotal = parseInt(respuesta.headers.get('content-length') || '0', 10);
                 const lector = respuesta.body.getReader();
-                let bytesDescargados = 0;
-                const fragmentos = [];
+                let bytesDescargados = 0; const fragmentos = [];
 
                 while(true) {
                     const {done, value} = await lector.read();
                     if (done) break;
-                    fragmentos.push(value);
-                    bytesDescargados += value.length;
+                    fragmentos.push(value); bytesDescargados += value.length;
                     if (tamanoTotal > 0) {
                         const porcentaje = Math.round((bytesDescargados / tamanoTotal) * 100);
-                        barra.style.width = porcentaje + '%';
-                        progreso.innerText = porcentaje + '%';
+                        barra.style.width = porcentaje + '%'; progreso.innerText = porcentaje + '%';
                     }
                 }
 
@@ -392,31 +406,24 @@
                 
                 overlay.style.display = 'none';
                 document.getElementById('btn-download-offline').style.display = 'none';
-                
                 mostrarNotificacionPersonalizada("✅ Mapa descargado con éxito.", "#00ff66", "#000");
 
             } catch (error) {
-                overlay.style.display = 'none';
-                document.getElementById('btn-download-offline').style.display = 'flex';
-                if (error.name === 'AbortError') {
-                    console.log('Descarga cancelada por el usuario.');
-                } else {
+                overlay.style.display = 'none'; document.getElementById('btn-download-offline').style.display = 'flex';
+                if (error.name !== 'AbortError') {
                     console.error('Error en la descarga:', error);
                     mostrarNotificacionPersonalizada("❌ Error al descargar el mapa.", "#ff3d00", "white");
                 }
             }
         }
 
-        function cancelarDescarga() {
-            if (abortController) { abortController.abort(); }
-        }
+        function cancelarDescarga() { if (abortController) { abortController.abort(); } }
 
         async function initNavigator() {
             const protocol = new pmtiles.Protocol();
             maplibregl.addProtocol("pmtiles", protocol.tile);
             
-            let urlIdentificador = PMTILES_URL;
-            let mapaOfflineListo = false;
+            let urlIdentificador = PMTILES_URL; let mapaOfflineListo = false;
 
             try {
                 const cache = await caches.open(NOMBRE_CACHE);
@@ -432,8 +439,7 @@
                         }
                     };
                     protocol.add(new pmtiles.PMTiles(fuenteLocal));
-                    urlIdentificador = "mapa-motonat-local";
-                    mapaOfflineListo = true;
+                    urlIdentificador = "mapa-motonat-local"; mapaOfflineListo = true;
                 } else {
                     protocol.add(new pmtiles.PMTiles(PMTILES_URL));
                 }
@@ -442,41 +448,48 @@
                 protocol.add(new pmtiles.PMTiles(PMTILES_URL));
             }
 
-            if (!mapaOfflineListo) {
-                document.getElementById('initial-prompt-overlay').style.display = 'flex';
-            }
+            if (!mapaOfflineListo) { document.getElementById('initial-prompt-overlay').style.display = 'flex'; }
 
-            /* Estilos de capas actualizados para mostrar ríos, lagos y bosques robustamente */
+            /* Paleta de colores ajustada: Tierra en gris oscuro (#22252a) para que resalten bosques y agua */
             const ESTILO_MINIMALISTA_OFFLINE = {
                 "version": 8,
                 "sources": { "mapa-curvas-source": { "type": "vector", "url": "pmtiles://" + urlIdentificador, "attribution": "© OSM" } },
                 "glyphs": "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
                 "layers": [
-                    { "id": "fondo-tierra", "type": "background", "paint": { "background-color": "#637A63" } },
-                    { "id": "capa-bosques-landuse", "type": "fill", "source": "mapa-curvas-source", "source-layer": "landuse", "filter": ["any", ["match", ["get", "class"], ["forest", "wood", "nature_reserve", "park", "orchard", "vineyard", "grass"], true, false], ["match", ["get", "kind"], ["forest", "wood", "nature_reserve", "park", "orchard", "vineyard", "grass"], true, false]], "paint": { "fill-color": "#586F58", "fill-opacity": 0.8 } },
-                    { "id": "capa-bosques-landcover", "type": "fill", "source": "mapa-curvas-source", "source-layer": "landcover", "filter": ["any", ["match", ["get", "class"], ["wood", "forest", "grass", "park"], true, false], ["match", ["get", "kind"], ["wood", "forest", "grass", "park"], true, false]], "paint": { "fill-color": "#586F58", "fill-opacity": 0.8 } },
-                    { "id": "capa-agua", "type": "fill", "source": "mapa-curvas-source", "source-layer": "water", "paint": { "fill-color": "#1E90FF" } },
-                    { "id": "capa-rios", "type": "line", "source": "mapa-curvas-source", "source-layer": "waterway", "paint": { "line-color": "#1E90FF", "line-width": 2 } },
-                    { "id": "capa-oceanos", "type": "fill", "source": "mapa-curvas-source", "source-layer": "ocean", "paint": { "fill-color": "#1E90FF" } },
-                    { "id": "capa-zonas-urbanas", "type": "fill", "source": "mapa-curvas-source", "source-layer": "landuse", "filter": ["any", ["match", ["get", "class"], ["residential", "industrial", "commercial", "retail"], true, false], ["match", ["get", "kind"], ["residential", "industrial", "commercial", "retail"], true, false]], "paint": { "fill-color": "#768B76", "fill-opacity": 0.5 } },
-                    { "id": "capa-edificios", "type": "fill", "source": "mapa-curvas-source", "source-layer": "buildings", "paint": { "fill-color": "#A9B8C3", "fill-opacity": 0.9 } },
-                    { "id": "carreteras-secundarias", "type": "line", "source": "mapa-curvas-source", "source-layer": "streets", "layout": { "line-join": "round", "line-cap": "round" }, "paint": { "line-color": "#A1B3A1", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 0.8, 15, 2.5] } },
-                    { "id": "carreteras-principales", "type": "line", "source": "mapa-curvas-source", "source-layer": "streets", "filter": ["any", ["match", ["get", "class"], ["primary", "secondary", "tertiary"], true, false], ["match", ["get", "kind"], ["primary", "secondary", "tertiary"], true, false]], "layout": { "line-join": "round", "line-cap": "round" }, "paint": { "line-color": "#DDE6DD", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.5, 15, 4.5] } },
-                    { "id": "autovias", "type": "line", "source": "mapa-curvas-source", "source-layer": "streets", "filter": ["any", ["==", ["get", "class"], "motorway"], ["==", ["get", "kind"], "motorway"]], "layout": { "line-join": "round", "line-cap": "round" }, "paint": { "line-color": "#FFFFFF", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 2.5, 15, 6] } },
-                    { "id": "nombres-ciudades", "type": "symbol", "source": "mapa-curvas-source", "source-layer": "places", "layout": { "text-field": ["get", "name"], "text-font": ["Noto Sans Regular"], "text-size": ["interpolate", ["linear"], ["zoom"], 10, 11, 14, 15], "text-variable-anchor": ["top", "bottom", "left", "right"], "text-justify": "auto" }, "paint": { "text-color": "#ffffff", "text-halo-color": "rgba(0, 0, 0, 0.6)", "text-halo-width": 2 } }
+                    { "id": "fondo-tierra", "type": "background", "paint": { "background-color": "#22252a" } },
+                    /* Bosques, áreas verdes y arboledas nítidas y visibles */
+                    { "id": "capa-bosques-landuse", "type": "fill", "source": "mapa-curvas-source", "source-layer": "landuse", "filter": ["any", ["match", ["get", "class"], ["forest", "wood", "nature_reserve", "park", "orchard", "vineyard", "grass"], true, false], ["match", ["get", "kind"], ["forest", "wood", "nature_reserve", "park", "orchard", "vineyard", "grass"], true, false]], "paint": { "fill-color": "#2d5a27", "fill-opacity": 0.85 } },
+                    { "id": "capa-bosques-landcover", "type": "fill", "source": "mapa-curvas-source", "source-layer": "landcover", "filter": ["any", ["match", ["get", "class"], ["wood", "forest", "grass", "park"], true, false], ["match", ["get", "kind"], ["wood", "forest", "grass", "park"], true, false]], "paint": { "fill-color": "#2d5a27", "fill-opacity": 0.85 } },
+                    { "id": "capa-bosques-natural", "type": "fill", "source": "mapa-curvas-source", "source-layer": "natural", "filter": ["any", ["match", ["get", "class"], ["wood", "forest", "scrub"], true, false], ["match", ["get", "kind"], ["wood", "forest", "scrub"], true, false]], "paint": { "fill-color": "#2d5a27", "fill-opacity": 0.85 } },
+                    /* Ríos, lagos y masas de agua azul brillante de alta visibilidad */
+                    { "id": "capa-agua", "type": "fill", "source": "mapa-curvas-source", "source-layer": "water", "paint": { "fill-color": "#0077cc" } },
+                    { "id": "capa-rios", "type": "line", "source": "mapa-curvas-source", "source-layer": "waterway", "paint": { "line-color": "#0077cc", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 2, 15, 5] } },
+                    { "id": "capa-oceanos", "type": "fill", "source": "mapa-curvas-source", "source-layer": "ocean", "paint": { "fill-color": "#0077cc" } },
+                    
+                    { "id": "capa-zonas-urbanas", "type": "fill", "source": "mapa-curvas-source", "source-layer": "landuse", "filter": ["any", ["match", ["get", "class"], ["residential", "industrial", "commercial", "retail"], true, false], ["match", ["get", "kind"], ["residential", "industrial", "commercial", "retail"], true, false]], "paint": { "fill-color": "#2f343f", "fill-opacity": 0.6 } },
+                    { "id": "capa-edificios", "type": "fill", "source": "mapa-curvas-source", "source-layer": "buildings", "paint": { "fill-color": "#3e4451", "fill-opacity": 0.8 } },
+                    { "id": "carreteras-secundarias", "type": "line", "source": "mapa-curvas-source", "source-layer": "streets", "layout": { "line-join": "round", "line-cap": "round" }, "paint": { "line-color": "#5c6370", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.0, 15, 3.0] } },
+                    { "id": "carreteras-principales", "type": "line", "source": "mapa-curvas-source", "source-layer": "streets", "filter": ["any", ["match", ["get", "class"], ["primary", "secondary", "tertiary"], true, false], ["match", ["get", "kind"], ["primary", "secondary", "tertiary"], true, false]], "layout": { "line-join": "round", "line-cap": "round" }, "paint": { "line-color": "#abb2bf", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.8, 15, 5.0] } },
+                    { "id": "autovias", "type": "line", "source": "mapa-curvas-source", "source-layer": "streets", "filter": ["any", ["==", ["get", "class"], "motorway"], ["==", ["get", "kind"], "motorway"]], "layout": { "line-join": "round", "line-cap": "round" }, "paint": { "line-color": "#ffffff", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 2.5, 15, 6.5] } },
+                    { "id": "nombres-ciudades", "type": "symbol", "source": "mapa-curvas-source", "source-layer": "places", "layout": { "text-field": ["get", "name"], "text-font": ["Noto Sans Regular"], "text-size": ["interpolate", ["linear"], ["zoom"], 10, 11, 14, 15], "text-variable-anchor": ["top", "bottom", "left", "right"], "text-justify": "auto" }, "paint": { "text-color": "#ffffff", "text-halo-color": "rgba(0, 0, 0, 0.7)", "text-halo-width": 2 } }
                 ]
             };
 
-            /* Modificados parámetros para evitar que la cámara se ladee por error */
             map = new maplibregl.Map({ 
                 container: 'map', style: ESTILO_MINIMALISTA_OFFLINE, center: miPosicion, zoom: nivelZoomActual, pitch: 62, bearing: 0, attributionControl: false,
-                dragRotate: false,       // Evita que arrastrar con dos dedos gire la cámara
-                touchPitch: false,       // Evita que deslizar dos dedos hacia arriba/abajo ladee la cámara
-                pitchWithRotate: false   // Desactiva la combinación de giro y ladeo accidental
+                dragRotate: false,       
+                touchPitch: false,       
+                pitchWithRotate: false   
             });
+
+            // CORRECCIÓN: Desactivar zoom por doble toque para evitar desalinear la flecha por error táctil
+            map.doubleClickZoom.disable();
 
             map.on('load', () => { 
                 configurarCapasRuta(); crearIconoNavegacion(); arrancarSeguimientoGPS(); configurarEventosGestos(); 
+                
+                // Asegurar que las rotaciones nativas por gestos múltiples queden completamente anuladas
+                if (map.touchZoomRotate) { map.touchZoomRotate.disableRotation(); }
                 
                 const destinoGuardado = localStorage.getItem('destinoMoto');
                 const coorsGuardadas = localStorage.getItem('coorsMoto');
@@ -509,9 +522,9 @@
             container.innerHTML = ''; 
 
             const GRADIENTES = {
-                low: 'linear-gradient(to bottom, rgba(0, 200, 50, 0.95) 50%, rgba(0, 200, 50, 0.3) 85%, rgba(0,0,0,0))',      
-                medium: 'linear-gradient(to bottom, rgba(255, 140, 0, 0.95) 50%, rgba(255, 140, 0, 0.3) 85%, rgba(0,0,0,0))', 
-                high: 'linear-gradient(to bottom, rgba(255, 0, 0, 0.95) 50%, rgba(255, 0, 0, 0.3) 85%, rgba(0,0,0,0))'         
+                low: 'linear-gradient(to bottom, rgba(0, 200, 50, 0.98) 55%, rgba(0, 200, 50, 0.3) 88%, rgba(0,0,0,0))',      
+                medium: 'linear-gradient(to bottom, rgba(255, 140, 0, 0.98) 55%, rgba(255, 140, 0, 0.3) 88%, rgba(0,0,0,0))', 
+                high: 'linear-gradient(to bottom, rgba(255, 0, 0, 0.98) 55%, rgba(255, 0, 0, 0.3) 88%, rgba(0,0,0,0))'         
             };
 
             if (esAutovia && peligrosidad !== 'high') {
@@ -529,9 +542,9 @@
 
             const config = CONFIG_PELIGRO[peligrosidad] || CONFIG_PELIGRO.low;
             if (peligrosidad === 'medium') {
-                mapaElement.style.backgroundColor = 'rgba(255, 140, 0, 0.15)'; hudTop.style.background = GRADIENTES.medium;
+                mapaElement.style.backgroundColor = 'rgba(255, 140, 0, 0.12)'; hudTop.style.background = GRADIENTES.medium;
             } else if (peligrosidad === 'high') {
-                mapaElement.style.backgroundColor = 'rgba(255, 0, 0, 0.2)'; hudTop.style.background = GRADIENTES.high;
+                mapaElement.style.backgroundColor = 'rgba(255, 0, 0, 0.16)'; hudTop.style.background = GRADIENTES.high;
             } else {
                 mapaElement.style.backgroundColor = 'transparent'; hudTop.style.background = GRADIENTES.low;
             }
@@ -591,7 +604,6 @@
                 else { document.getElementById('total-time-display').innerHTML = `<span>${totalMinutos}</span> MIN`; }
 
                 document.getElementById('top-bar-container').style.display = 'none';
-                
                 document.getElementById('trip-totals-pill').style.display = 'flex';
                 document.getElementById('panel-right-street').style.display = 'flex';
                 
@@ -617,7 +629,7 @@
             
             const esAutovia = /A-\d|AP-\d|Autovía|Autopista/i.test(calleActualInfo) || /A-\d|AP-\d|Autovía|Autopista/i.test(proximaCalleInfo);
             document.getElementById('next-street-name').innerText = proximaCalleInfo || "Tramo Continuo";
-            document.getElementById('speed-limit-value').innerText = estimarVelocidadMaxima(calleActualInfo, esAutovia);
+            document.getElementById('speed-limit-value').innerText = ponerEstiloVelocidadMaxima(calleActualInfo, esAutovia);
 
             const hudTop = document.getElementById('hud-top-danger-meter');
             const hudDistanceEl = document.getElementById('hud-curve-distance');
