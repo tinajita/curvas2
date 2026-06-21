@@ -47,26 +47,17 @@
 
         #top-bar-container { display: flex; gap: 8px; margin-top: 10px; width: 100%; pointer-events: none; align-items: stretch; }
         
-        /* Botón Fullscreen movido abajo a la derecha de forma flotante */
-        #btn-fullscreen { position: absolute; bottom: calc(env(safe-area-inset-bottom, 12px) + 95px); right: 14px; background: rgba(25, 30, 24, 0.95); border: 1px solid #424d44; border-bottom: 3px solid #00ff66; color: #fff; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 6px 30px rgba(0,0,0,0.8); pointer-events: auto; z-index: 99; transition: all 0.2s; }
-        #btn-fullscreen svg { width: 22px; height: 22px; stroke: #fff; stroke-width: 2.5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
-        #btn-fullscreen:active { background: #384237; }
-
         #search-block { background: rgba(25, 30, 24, 0.95); border: 1px solid #424d44; border-bottom: 3px solid #00ff66; padding: 10px; border-radius: 20px; pointer-events: auto; box-shadow: 0 6px 30px rgba(0,0,0,0.8); display: flex; gap: 8px; flex: 1; min-width: 0; }
         #destination-input { flex: 1; background: #1a2019; border: 1px solid #384237; color: #fff; padding: 12px 14px; font-size: 15px; border-radius: 25px; outline: none; min-width: 0; }
         #destination-input:focus { border-color: #00ff66; }
         .btn-action { background: #00ff66; color: #000; border: none; padding: 0 18px; font-size: 14px; font-weight: bold; border-radius: 25px; cursor: pointer; text-transform: uppercase; flex-shrink: 0; }
 
-        #btn-download-offline { pointer-events: auto; display: none; position: absolute; top: 50%; right: 15px; transform: translateY(-50%); background: rgba(25, 30, 24, 0.95); border: 1px solid #424d44; border-bottom: 3px solid #424d44; color: #00ff66; padding: 14px 20px; border-radius: 25px; font-weight: 800; font-size: 13px; box-shadow: 0 6px 30px rgba(0,0,0,0.8); text-transform: uppercase; cursor: pointer; transition: all 0.2s ease; letter-spacing: 0.5px; z-index: 50; white-space: nowrap; }
-        #btn-download-offline:active { background: #384237; }
-
-        /* HUD corregido: Ceñido arriba al tope absoluto de la pantalla y con un 15% más de tamaño */
         #hud-top-danger-meter { position: absolute; top: 0; left: 0; width: 100%; height: 25vh; background: linear-gradient(to bottom, rgba(25,32,24,0.95) 60%, rgba(20,25,20,0.4) 85%, rgba(0,0,0,0)); display: none; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 10px 20px; padding-top: calc(env(safe-area-inset-top, 12px) + 6px); border-radius: 0 0 22px 22px; transition: background 0.3s ease; z-index: 90; }
         #danger-chevrons-container { display: flex; align-items: center; justify-content: center; gap: 8px; height: 80px; }
         .danger-chevron { width: 60px; height: 80px; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.95)); }
         #hud-curve-distance { font-size: 64px; font-weight: 900; color: #ffffff; letter-spacing: -2px; line-height: 1; text-shadow: 0 4px 12px rgba(0,0,0,1); }
 
-        #recenter-container { position: absolute; top: 28vh; right: 15px; display: none; pointer-events: auto; }
+        #recenter-container { position: absolute; top: 28vh; right: 15px; display: none; pointer-events: auto; z-index: 40; }
         .btn-recenter { background: #00ff66; color: #000; border: none; padding: 10px 18px; font-size: 12px; font-weight: bold; border-radius: 20px; text-transform: uppercase; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
 
         #hud-bottom-row { display: flex; justify-content: space-between; align-items: flex-end; width: 100%; }
@@ -82,24 +73,40 @@
         #trip-totals-pill { display: none; background: rgba(25, 30, 24, 0.95); border: 1px solid #424d44; padding: 10px 18px; border-radius: 18px; box-shadow: 0 6px 20px rgba(0,0,0,0.7); font-weight: bold; font-size: 16px; color: #fff; gap: 12px; }
         #trip-totals-pill span { color: #00ff66; font-weight: 900; }
 
-        #panel-right-street { display: none; flex-direction: column; align-items: flex-end; pointer-events: auto; max-width: 48%; }
+        /* NUEVO: Contenedor unificado para la esquina inferior derecha */
+        #panel-right-controls { display: flex; flex-direction: column; align-items: flex-end; gap: 12px; pointer-events: none; max-width: 50%; }
+        #panel-right-controls * { pointer-events: auto; }
+        
+        #panel-right-street { display: none; max-width: 100%; }
         .street-pill { background: rgba(25, 30, 24, 0.95); border: 2px solid #00ff66; padding: 12px 18px; border-radius: 18px; box-shadow: 0 6px 20px rgba(0,0,0,0.8); display: flex; align-items: center; gap: 12px; }
         #next-street-name { font-size: 15px; font-weight: 800; color: #ffffff; text-transform: uppercase; text-align: right; letter-spacing: 0.4px; }
         .btn-close-route { background: #ff3d00; color: white; border: none; width: 28px; height: 28px; border-radius: 50%; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+        #bottom-buttons-row { display: flex; align-items: center; gap: 10px; }
+        
+        #btn-fullscreen { background: rgba(25, 30, 24, 0.95); border: 1px solid #424d44; border-bottom: 3px solid #00ff66; color: #fff; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 6px 30px rgba(0,0,0,0.8); transition: all 0.2s; }
+        #btn-fullscreen svg { width: 22px; height: 22px; stroke: #fff; stroke-width: 2.5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+        #btn-fullscreen:active { background: #384237; }
+
+        #btn-download-offline { display: none; background: rgba(25, 30, 24, 0.95); border: 1px solid #424d44; border-bottom: 3px solid #424d44; color: #00ff66; padding: 14px 20px; border-radius: 25px; font-weight: 800; font-size: 13px; box-shadow: 0 6px 30px rgba(0,0,0,0.8); text-transform: uppercase; cursor: pointer; transition: all 0.2s ease; letter-spacing: 0.5px; white-space: nowrap; }
+        #btn-download-offline:active { background: #384237; }
 
         .nav-arrow-marker { width: 55px; height: 55px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0px 8px 8px rgba(0,0,0,0.85)); transition: transform 0.2s linear; }
         
         #dynamic-alert-banner { position: absolute; top: 20px; left: 20px; right: 20px; background: #ff3d00; color: white; padding: 15px; border-radius: 12px; text-align: center; font-weight: bold; z-index: 999; display: none; box-shadow: 0 4px 20px rgba(0,0,0,0.5); pointer-events: auto; transition: background 0.3s ease; }
 
+        /* Ajustes específicos para Horizontal (Apaisado) */
         @media (orientation: landscape) {
-            #ui-overlay { padding-top: env(safe-area-inset-top, 4px); padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 32px); }
-            #btn-fullscreen { bottom: calc(env(safe-area-inset-bottom, 0px) + 80px); right: 14px; }
-            #hud-top-danger-meter { height: 60px; flex-direction: row; justify-content: space-between; padding: 0 40px; padding-top: env(safe-area-inset-top, 0px); border-radius: 0 0 14px 14px; }
-            #danger-chevrons-container { height: 44px; gap: 12px; }
-            .danger-chevron { width: 30px; height: 44px; }
-            #hud-curve-distance { font-size: 40px; }
-            #recenter-container { top: 75px; }
-            #hud-bottom-row { align-items: center; }
+            #ui-overlay { padding-top: env(safe-area-inset-top, 4px); padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 24px); }
+            
+            /* HUD Horizontal con 20% de altura de pantalla */
+            #hud-top-danger-meter { height: 20vh; min-height: 80px; flex-direction: row; justify-content: space-between; padding: 0 40px; padding-top: env(safe-area-inset-top, 0px); border-radius: 0 0 14px 14px; }
+            #danger-chevrons-container { height: 60px; gap: 12px; }
+            .danger-chevron { width: 45px; height: 60px; }
+            #hud-curve-distance { font-size: 50px; }
+            
+            #recenter-container { top: 22vh; }
+            #hud-bottom-row { align-items: flex-end; }
             #panel-left-telemetry { flex-direction: row; align-items: center; gap: 12px; }
             .speed-pill { padding: 6px 16px; }
             #speed-value { font-size: 32px; }
@@ -145,12 +152,6 @@
                 </div>
             </div>
 
-            <button id="btn-fullscreen" onclick="toggleFullScreen()" title="Pantalla Completa">
-                <svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
-            </button>
-
-            <button id="btn-download-offline" onclick="descargarMapaOffline()">⬇️ Mapa Offline</button>
-
             <div id="hud-top-danger-meter">
                 <div id="danger-chevrons-container"></div>
                 <div id="hud-curve-distance">-- m</div>
@@ -161,6 +162,7 @@
             </div>
 
             <div id="hud-bottom-row">
+                <!-- TELEMETRÍA (ABAJO IZQUIERDA) -->
                 <div id="panel-left-telemetry">
                     <div class="speed-pill">
                         <div class="speed-wrapper">
@@ -176,10 +178,22 @@
                     </div>
                 </div>
                 
-                <div id="panel-right-street">
-                    <div class="street-pill">
-                        <span id="next-street-name">Ruta</span>
-                        <button class="btn-close-route" onclick="cancelarRuta()">✕</button>
+                <!-- CONTROLES UNIFICADOS (ABAJO DERECHA) -->
+                <div id="panel-right-controls">
+                    <!-- Nombre de calle (Aparece arriba de los botones) -->
+                    <div id="panel-right-street">
+                        <div class="street-pill">
+                            <span id="next-street-name">Ruta</span>
+                            <button class="btn-close-route" onclick="cancelarRuta()">✕</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Fila inferior de botones -->
+                    <div id="bottom-buttons-row">
+                        <button id="btn-download-offline" onclick="descargarMapaOffline()">⬇️ Mapa Offline</button>
+                        <button id="btn-fullscreen" onclick="toggleFullScreen()" title="Pantalla Completa">
+                            <svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -210,16 +224,26 @@
         let recalculando = false;
 
         let abortController = null;
+        let wakeLockInstance = null;
 
         const getCenterOffset = () => [0, window.innerHeight * (window.innerHeight > window.innerWidth ? 0.16 : 0.04)];
         const CONFIG_PELIGRO = { low: { paneles: 1 }, medium: { paneles: 2 }, high: { paneles: 3 } };
         
-        // Iconos HUD escalados un 15% más grandes
         const ICONOS_HUD = {
             rotonda: `<svg class="danger-chevron" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:69px; height:69px;"><circle cx="12" cy="12" r="8"/><path d="M12 2v4M12 18v4M4 12h4M16 12h4"/></svg>`,
             cruce: `<svg class="danger-chevron" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:63px; height:63px;"><path d="M12 2v20M2 12h20"/></svg>`,
             autovia: `<svg class="danger-chevron" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:75px; height:75px;"><path d="M7 2v20M17 2v20M3 12h6M15 12h6"/></svg>`
         };
+
+        async function requestWakeLock() {
+            if ('wakeLock' in navigator) {
+                try {
+                    wakeLockInstance = await navigator.wakeLock.request('screen');
+                } catch (err) {
+                    console.log(`WakeLock no permitido o fallido: ${err.message}`);
+                }
+            }
+        }
 
         document.addEventListener('fullscreenchange', handleFullscreenChange);
         document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
@@ -230,6 +254,9 @@
                 btn.style.display = 'none';
             } else {
                 btn.style.display = 'flex';
+                if (wakeLockInstance !== null) {
+                    wakeLockInstance.release().then(() => { wakeLockInstance = null; });
+                }
             }
         }
 
@@ -238,6 +265,7 @@
                 const elem = document.documentElement;
                 if (elem.requestFullscreen) { elem.requestFullscreen(); } 
                 else if (elem.webkitRequestFullscreen) { elem.webkitRequestFullscreen(); }
+                requestWakeLock();
             } else {
                 if (document.exitFullscreen) { document.exitFullscreen(); } 
                 else if (document.webkitExitFullscreen) { document.webkitExitFullscreen(); }
@@ -259,7 +287,7 @@
             const nombre = calleInfo ? calleInfo.toUpperCase() : "";
             if (esAutovia || nombre.includes("AP-") || nombre.includes("A-")) return "120";
             if (nombre.includes("N-") || nombre.includes("NACIONAL")) return "90";
-            if (nombre.includes("AVENIDA") || nombre.includes("BOULEVARD") || nombre.includes("AV.")) return "50";
+            if (nombre.includes("AVENIDA") || nombre.includes("BOULEVARD") || font.includes("AV.")) return "50";
             if (nombre.includes("CALLE") || nombre.includes("C/") || nombre.includes("C.")) return "30";
             return "30"; 
         }
@@ -331,16 +359,21 @@
 
             if (!mapaOfflineListo) { document.getElementById('initial-prompt-overlay').style.display = 'flex'; }
 
+            // ESTILO CORREGIDO: Reordenamiento drástico para asegurar visibilidad del agua y ríos
             const ESTILO_MINIMALISTA = {
                 "version": 8, "sources": { "mapa-curvas": { "type": "vector", "url": "pmtiles://" + urlIdentificador } },
                 "glyphs": "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
                 "layers": [
-                    { "id": "fondo", "type": "background", "paint": { "background-color": "#819988" } },
-                    { "id": "bosques", "type": "fill", "source": "mapa-curvas", "source-layer": "landuse", "filter": ["in", "kind", "forest", "wood", "park", "grass"], "paint": { "fill-color": "#768E7E", "fill-opacity": 0.8 } },
-                    { "id": "agua", "type": "fill", "source": "mapa-curvas", "source-layer": "water", "paint": { "fill-color": "#355E82" } },
-                    { "id": "urbano", "type": "fill", "source": "mapa-curvas", "source-layer": "landuse", "filter": ["in", "kind", "residential", "industrial", "commercial"], "paint": { "fill-color": "#8D9E91", "fill-opacity": 0.5 } },
-                    { "id": "calles", "type": "line", "source": "mapa-curvas", "source-layer": "streets", "layout": { "line-join": "round", "line-cap": "round" }, "paint": { "line-color": "#ffffff", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.2, 15, 3.5] } },
-                    { "id": "nombres", "type": "symbol", "source": "mapa-curvas", "source-layer": "places", "layout": { "text-field": ["get", "name"], "text-font": ["Noto Sans Regular"], "text-size": 14 }, "paint": { "text-color": "#ffffff", "text-halo-color": "rgba(0,0,0,0.5)", "text-halo-width": 1.5 } }
+                    { "id": "fondo", "type": "background", "paint": { "background-color": "#2c322c" } },
+                    { "id": "urbano", "type": "fill", "source": "mapa-curvas", "source-layer": "landuse", "filter": ["in", "kind", "residential", "industrial", "commercial", "urban"], "paint": { "fill-color": "#3c463d", "fill-opacity": 0.6 } },
+                    { "id": "bosques", "type": "fill", "source": "mapa-curvas", "source-layer": "landuse", "filter": ["in", "kind", "forest", "wood", "park", "grass"], "paint": { "fill-color": "#234d31", "fill-opacity": 0.7 } },
+                    { "id": "bosques-nat", "type": "fill", "source": "mapa-curvas", "source-layer": "natural", "filter": ["in", "class", "wood", "forest", "park"], "paint": { "fill-color": "#234d31", "fill-opacity": 0.7 } },
+                    { "id": "agua", "type": "fill", "source": "mapa-curvas", "source-layer": "water", "paint": { "fill-color": "#005ea5", "fill-opacity": 1.0 } },
+                    { "id": "lineas-agua", "type": "line", "source": "mapa-curvas", "source-layer": "waterway", "paint": { "line-color": "#005ea5", "line-width": 2 } },
+                    { "id": "edificios-1", "type": "fill", "source": "mapa-curvas", "source-layer": "building", "paint": { "fill-color": "#1a1a1a", "fill-opacity": 0.85 } },
+                    { "id": "edificios-2", "type": "fill", "source": "mapa-curvas", "source-layer": "buildings", "paint": { "fill-color": "#1a1a1a", "fill-opacity": 0.85 } },
+                    { "id": "calles", "type": "line", "source": "mapa-curvas", "source-layer": "streets", "layout": { "line-join": "round", "line-cap": "round" }, "paint": { "line-color": "#ffffff", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.5, 15, 4.0] } },
+                    { "id": "nombres", "type": "symbol", "source": "mapa-curvas", "source-layer": "places", "layout": { "text-field": ["get", "name"], "text-font": ["Noto Sans Regular"], "text-size": 14 }, "paint": { "text-color": "#ffffff", "text-halo-color": "rgba(0,0,0,0.7)", "text-halo-width": 2 } }
                 ]
             };
 
@@ -541,11 +574,11 @@
             }, (err) => { mostrarNotificacionPersonalizada("⚠️ GPS sin precisión.", "#ff3d00", "white", 4000); }, { enableHighAccuracy: true, maximumAge: 1000, timeout: 5000 });
         }
 
-        if ('wakeLock' in navigator) {
-            let wakeLockInstance = null; 
-            document.addEventListener('visibilitychange', async () => { if (document.visibilityState === 'visible') { try { wakeLockInstance = await navigator.wakeLock.request('screen'); } catch (e) {} } });
-            navigator.wakeLock.request('screen').then(lock => wakeLockInstance = lock).catch(()=>{});
-        }
+        document.addEventListener('visibilitychange', () => { 
+            if (document.visibilityState === 'visible' && (document.fullscreenElement || document.webkitFullscreenElement)) { 
+                requestWakeLock();
+            } 
+        });
 
         window.onload = initNavigator;
     </script>
