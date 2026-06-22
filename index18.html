@@ -16,7 +16,7 @@
     
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-        body, html { height: 100dvh; background-color: #22252a; color: #fff; overflow: hidden; touch-action: none; -webkit-text-size-adjust: none; }
+        body, html { height: 100dvh; background-color: #687569; /* Fondo base adaptado */ color: #fff; overflow: hidden; touch-action: none; -webkit-text-size-adjust: none; }
         #navigator-container { display: flex; flex-direction: column; height: 100dvh; position: relative; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; transition: background-color 0.3s ease; }
 
@@ -51,10 +51,10 @@
         #recenter-container { position: absolute; top: 25vh; right: 15px; display: none; pointer-events: auto; }
         .btn-recenter { background: #00ff66; color: #000; border: none; padding: 10px 18px; font-size: 12px; font-weight: bold; border-radius: 20px; text-transform: uppercase; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
 
-        /* Estilos ajustados para evitar solapamiento */
-        #hud-bottom-row { margin-top: auto; display: flex; justify-content: space-between; align-items: flex-end; width: 100%; padding: 0 14px calc(env(safe-area-inset-bottom, 12px) + 24px) 14px; pointer-events: none; touch-action: none; gap: 10px; }
+        /* Estilos completamente blindados para evitar solapamiento */
+        #hud-bottom-row { margin-top: auto; display: flex; justify-content: space-between; align-items: flex-end; width: 100%; padding: 0 14px calc(env(safe-area-inset-bottom, 12px) + 24px) 14px; pointer-events: none; touch-action: none; gap: 15px; box-sizing: border-box; }
         
-        #panel-left-telemetry { display: flex; flex-direction: column; gap: 10px; pointer-events: auto; flex-shrink: 0; }
+        #panel-left-telemetry { display: flex; flex-direction: column; gap: 10px; pointer-events: auto; flex-shrink: 0; max-width: 45%; }
         .speed-pill { display: flex; align-items: center; background: rgba(25, 30, 24, 0.95); padding: 10px 20px; border-radius: 22px; border: 1px solid #424d44; box-shadow: 0 6px 20px rgba(0,0,0,0.8); width: fit-content; }
         .speed-wrapper { display: flex; align-items: baseline; }
         #speed-value { font-size: 46px; font-weight: 900; color: #00ff66; line-height: 1; }
@@ -64,12 +64,24 @@
         #trip-totals-pill { display: none; background: rgba(25, 30, 24, 0.95); border: 1px solid #424d44; padding: 10px 18px; border-radius: 18px; box-shadow: 0 6px 20px rgba(0,0,0,0.7); font-weight: bold; font-size: 16px; color: #fff; gap: 12px; align-items: center; width: fit-content; }
         #trip-totals-pill span { color: #00ff66; font-weight: 900; }
 
-        /* Ajustes en el grupo derecho para alineación */
-        #panel-right-group { display: flex; flex-direction: column; align-items: flex-end; gap: 12px; pointer-events: none; max-width: 60%; flex-grow: 1; justify-content: flex-end; }
+        /* Corrección vital para evitar que el grupo derecho se expanda de más */
+        #panel-right-group { display: flex; flex-direction: column; align-items: flex-end; gap: 12px; pointer-events: none; max-width: 55%; flex-grow: 1; justify-content: flex-end; min-width: 0; }
         #panel-right-street { display: none; pointer-events: auto; max-width: 100%; width: fit-content; }
-        .street-pill { background: rgba(25, 30, 24, 0.95); border: 2px solid #00ff66; padding: 12px 18px; border-radius: 18px; box-shadow: 0 6px 20px rgba(0,0,0,0.8); display: flex; align-items: center; gap: 12px; max-width: 100%; }
-        #next-street-name { font-size: 15px; font-weight: 800; color: #ffffff; text-transform: uppercase; text-align: right; letter-spacing: 0.4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .btn-close-route { background: #ff3d00; color: white; border: none; width: 28px; height: 28px; border-radius: 50%; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .street-pill { background: rgba(25, 30, 24, 0.95); border: 2px solid #00ff66; padding: 10px 14px; border-radius: 18px; box-shadow: 0 6px 20px rgba(0,0,0,0.8); display: flex; align-items: center; gap: 10px; max-width: 100%; box-sizing: border-box; }
+        
+        /* Flexbox seguro para truncar texto sin empujar los botones */
+        #next-street-name { 
+            font-weight: 800; color: #ffffff; text-transform: uppercase; text-align: right; letter-spacing: 0.4px; 
+            flex: 0 1 auto; /* Permite que encoja si no hay espacio */
+            min-width: 0; /* CLAVE: Fuerza al navegador a aplicar el ellipsis en vez de salirse de pantalla */
+            white-space: nowrap; 
+            overflow: hidden; 
+            text-overflow: ellipsis; 
+        }
+        .btn-close-route { 
+            background: #ff3d00; color: white; border: none; width: 28px; height: 28px; border-radius: 50%; font-weight: bold; cursor: pointer; 
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0; /* Nunca encoger el botón X */
+        }
 
         #bottom-right-actions { display: flex; gap: 10px; pointer-events: auto; justify-content: flex-end; }
         .btn-bottom-icon { background: rgba(25, 30, 24, 0.95); border: 1px solid #424d44; border-bottom: 3px solid #00ff66; width: 46px; height: 46px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 6px 30px rgba(0,0,0,0.8); transition: all 0.2s; flex-shrink: 0; touch-action: none; }
@@ -90,14 +102,14 @@
             #hud-curve-distance { font-size: 38px; }
             #recenter-container { top: 28vh; }
             #hud-bottom-row { align-items: center; }
-            #panel-left-telemetry { flex-direction: row; align-items: center; gap: 12px; }
+            #panel-left-telemetry { flex-direction: row; align-items: center; gap: 12px; max-width: 50%; }
             .speed-pill { padding: 6px 16px; }
             #speed-value { font-size: 34px; }
             .speed-limit-sign { width: 28px; height: 28px; font-size: 12px; border-width: 3px; margin-left: 10px; }
             #trip-totals-pill { padding: 8px 14px; font-size: 14px; }
             .street-pill { padding: 8px 14px; }
             #next-street-name { font-size: 13px; }
-            #panel-right-group { max-width: 50%; }
+            #panel-right-group { max-width: 45%; }
         }
     </style>
 </head>
@@ -191,7 +203,6 @@
         let indicePasoActual = 0;
         let abortController = null;
 
-        // Variables para gestionar la estimación de tiempo y distancia proporcionales
         let initialDistanceKm = parseFloat(localStorage.getItem('initialDistanceKm') || '0');
         let initialDurationMin = parseFloat(localStorage.getItem('initialDurationMin') || '0');
 
@@ -220,9 +231,6 @@
             return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); 
         }
 
-        // -------------------------------------------------------------
-        // REGLA DE AVISOS CORREGIDA: 400, 300, 200, 100, 50, 25
-        // -------------------------------------------------------------
         function cuantificarMetrosCurva(metros) {
             if (metros < 25) return ""; 
             if (metros <= 37) return "25 m";
@@ -230,7 +238,6 @@
             if (metros <= 150) return "100 m";
             if (metros <= 250) return "200 m";
             if (metros <= 350) return "300 m";
-            // Si está por debajo de 450, mostramos 400. Si está por encima, no mostramos nada (se gestiona fuera)
             if (metros <= 450) return "400 m"; 
             return ""; 
         }
@@ -327,25 +334,25 @@
             if (!mapaOfflineListo) document.getElementById('initial-prompt-overlay').style.display = 'flex';
 
             // -------------------------------------------------------------
-            // ESTILO DE MAPA AJUSTADO: Fondo aclarado y carreteras más visibles
+            // COLORES CORREGIDOS: IDÉNTICOS A LA FOTO DIURNA DE REFERENCIA
             // -------------------------------------------------------------
             const ESTILO_MINIMALISTA_OFFLINE = {
                 "version": 8,
                 "sources": { "mapa-curvas-source": { "type": "vector", "url": "pmtiles://" + urlIdentificador, "attribution": "© OSM" } },
                 "glyphs": "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
                 "layers": [
-                    { "id": "fondo-tierra", "type": "background", "paint": { "background-color": "#2a3832" } }, // Color más cercano a la foto
-                    { "id": "capa-bosques-landuse", "type": "fill", "source": "mapa-curvas-source", "source-layer": "landuse", "filter": ["any", ["match", ["get", "class"], ["forest", "wood", "nature_reserve", "park", "orchard", "vineyard", "grass"], true, false], ["match", ["get", "kind"], ["forest", "wood", "nature_reserve", "park", "orchard", "vineyard", "grass"], true, false]], "paint": { "fill-color": "#1f3d23", "fill-opacity": 0.8 } }, // Bosques aclarados
-                    { "id": "capa-bosques-landcover", "type": "fill", "source": "mapa-curvas-source", "source-layer": "landcover", "filter": ["any", ["match", ["get", "class"], ["wood", "forest", "grass", "park"], true, false], ["match", ["get", "kind"], ["wood", "forest", "grass", "park"], true, false]], "paint": { "fill-color": "#1f3d23", "fill-opacity": 0.8 } },
-                    { "id": "capa-bosques-natural", "type": "fill", "source": "mapa-curvas-source", "source-layer": "natural", "filter": ["any", ["match", ["get", "class"], ["wood", "forest", "scrub"], true, false], ["match", ["get", "kind"], ["wood", "forest", "scrub"], true, false]], "paint": { "fill-color": "#1f3d23", "fill-opacity": 0.8 } },
-                    { "id": "capa-agua", "type": "fill", "source": "mapa-curvas-source", "source-layer": "water", "paint": { "fill-color": "#1a2d48" } }, // Agua aclarada
-                    { "id": "capa-rios", "type": "line", "source": "mapa-curvas-source", "source-layer": "waterway", "paint": { "line-color": "#1a2d48", "line-width": 3 } },
-                    { "id": "capa-oceanos", "type": "fill", "source": "mapa-curvas-source", "source-layer": "ocean", "paint": { "fill-color": "#1a2d48" } },
-                    { "id": "capa-zonas-urbanas", "type": "fill", "source": "mapa-curvas-source", "source-layer": "landuse", "filter": ["any", ["match", ["get", "class"], ["residential", "industrial", "commercial", "retail"], true, false], ["match", ["get", "kind"], ["residential", "industrial", "commercial", "retail"], true, false]], "paint": { "fill-color": "#404a43", "fill-opacity": 0.6 } }, // Zonas urbanas aclaradas
-                    { "id": "capa-edificios", "type": "fill", "source": "mapa-curvas-source", "source-layer": "buildings", "paint": { "fill-color": "#d1dce8", "fill-opacity": 0.85 } }, // Edificios más claros
-                    { "id": "capa-building", "type": "fill", "source": "mapa-curvas-source", "source-layer": "building", "paint": { "fill-color": "#d1dce8", "fill-opacity": 0.85 } },
-                    { "id": "carreteras-secundarias", "type": "line", "source": "mapa-curvas-source", "source-layer": "streets", "layout": { "line-join": "round", "line-cap": "round" }, "paint": { "line-color": "#818e9e", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.2, 15, 3.5] } }, // Carreteras aclaradas
-                    { "id": "carreteras-principales", "type": "line", "source": "mapa-curvas-source", "source-layer": "streets", "filter": ["any", ["match", ["get", "class"], ["primary", "secondary", "tertiary"], true, false], ["match", ["get", "kind"], ["primary", "secondary", "tertiary"], true, false]], "layout": { "line-join": "round", "line-cap": "round" }, "paint": { "line-color": "#d1dce8", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 2.0, 15, 5.5] } },
+                    { "id": "fondo-tierra", "type": "background", "paint": { "background-color": "#687569" } }, /* Tierra oliva clara */
+                    { "id": "capa-bosques-landuse", "type": "fill", "source": "mapa-curvas-source", "source-layer": "landuse", "filter": ["any", ["match", ["get", "class"], ["forest", "wood", "nature_reserve", "park", "orchard", "vineyard", "grass"], true, false], ["match", ["get", "kind"], ["forest", "wood", "nature_reserve", "park", "orchard", "vineyard", "grass"], true, false]], "paint": { "fill-color": "#5c6b5d", "fill-opacity": 0.8 } },
+                    { "id": "capa-bosques-landcover", "type": "fill", "source": "mapa-curvas-source", "source-layer": "landcover", "filter": ["any", ["match", ["get", "class"], ["wood", "forest", "grass", "park"], true, false], ["match", ["get", "kind"], ["wood", "forest", "grass", "park"], true, false]], "paint": { "fill-color": "#5c6b5d", "fill-opacity": 0.8 } },
+                    { "id": "capa-bosques-natural", "type": "fill", "source": "mapa-curvas-source", "source-layer": "natural", "filter": ["any", ["match", ["get", "class"], ["wood", "forest", "scrub"], true, false], ["match", ["get", "kind"], ["wood", "forest", "scrub"], true, false]], "paint": { "fill-color": "#5c6b5d", "fill-opacity": 0.8 } },
+                    { "id": "capa-agua", "type": "fill", "source": "mapa-curvas-source", "source-layer": "water", "paint": { "fill-color": "#2a3f54" } }, /* Agua azul pizarra */
+                    { "id": "capa-rios", "type": "line", "source": "mapa-curvas-source", "source-layer": "waterway", "paint": { "line-color": "#2a3f54", "line-width": 3 } },
+                    { "id": "capa-oceanos", "type": "fill", "source": "mapa-curvas-source", "source-layer": "ocean", "paint": { "fill-color": "#2a3f54" } },
+                    { "id": "capa-zonas-urbanas", "type": "fill", "source": "mapa-curvas-source", "source-layer": "landuse", "filter": ["any", ["match", ["get", "class"], ["residential", "industrial", "commercial", "retail"], true, false], ["match", ["get", "kind"], ["residential", "industrial", "commercial", "retail"], true, false]], "paint": { "fill-color": "#8d9eac", "fill-opacity": 0.6 } }, /* Bloques urbanos gris-azul claro */
+                    { "id": "capa-edificios", "type": "fill", "source": "mapa-curvas-source", "source-layer": "buildings", "paint": { "fill-color": "#a8b8c4", "fill-opacity": 0.85 } }, 
+                    { "id": "capa-building", "type": "fill", "source": "mapa-curvas-source", "source-layer": "building", "paint": { "fill-color": "#a8b8c4", "fill-opacity": 0.85 } },
+                    { "id": "carreteras-secundarias", "type": "line", "source": "mapa-curvas-source", "source-layer": "streets", "layout": { "line-join": "round", "line-cap": "round" }, "paint": { "line-color": "#4a5a4c", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.2, 15, 3.5] } },
+                    { "id": "carreteras-principales", "type": "line", "source": "mapa-curvas-source", "source-layer": "streets", "filter": ["any", ["match", ["get", "class"], ["primary", "secondary", "tertiary"], true, false], ["match", ["get", "kind"], ["primary", "secondary", "tertiary"], true, false]], "layout": { "line-join": "round", "line-cap": "round" }, "paint": { "line-color": "#c8d1c9", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 2.0, 15, 5.5] } },
                     { "id": "autovias", "type": "line", "source": "mapa-curvas-source", "source-layer": "streets", "filter": ["any", ["==", ["get", "class"], "motorway"], ["==", ["get", "kind"], "motorway"]], "layout": { "line-join": "round", "line-cap": "round" }, "paint": { "line-color": "#ffffff", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 3.0, 15, 7.0] } },
                     { "id": "nombres-ciudades", "type": "symbol", "source": "mapa-curvas-source", "source-layer": "places", "layout": { "text-field": ["get", "name"], "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"], "text-size": ["interpolate", ["linear"], ["zoom"], 8, 12, 15, 18], "text-max-width": 8 }, "paint": { "text-color": "#ffffff", "text-halo-color": "rgba(0, 0, 0, 0.95)", "text-halo-width": 2.5 } },
                     { "id": "nombres-place", "type": "symbol", "source": "mapa-curvas-source", "source-layer": "place", "layout": { "text-field": ["get", "name"], "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"], "text-size": ["interpolate", ["linear"], ["zoom"], 8, 12, 15, 18], "text-max-width": 8 }, "paint": { "text-color": "#ffffff", "text-halo-color": "rgba(0, 0, 0, 0.95)", "text-halo-width": 2.5 } }
@@ -551,13 +558,12 @@
                 
                 esAutovia = /A-\d|AP-\d|Autovía|Autopista/i.test(calleActualInfo) || /A-\d|AP-\d|Autovía|Autopista/i.test(proximaCalleInfo);
 
-                // --- INICIO DE AJUSTE DINÁMICO DE TAMAÑO DE FUENTE ---
+                // --- AJUSTE DINÁMICO DE TAMAÑO DE FUENTE ---
                 const nextStreetEl = document.getElementById('next-street-name');
                 nextStreetEl.innerText = proximaCalleInfo;
-                nextStreetEl.style.fontSize = ''; // Resetea al valor CSS por defecto (15px)
+                nextStreetEl.style.fontSize = ''; 
 
                 const charCount = proximaCalleInfo.length;
-                // Definimos umbrales y tamaños de fuente.
                 if (charCount > 30) {
                     nextStreetEl.style.fontSize = '10px';
                 } else if (charCount > 25) {
@@ -565,10 +571,8 @@
                 } else if (charCount > 20) {
                     nextStreetEl.style.fontSize = '13px';
                 } else {
-                    // Dejamos el por defecto que es 15px.
                     nextStreetEl.style.fontSize = '15px';
                 }
-                // --- FIN DE AJUSTE DINÁMICO DE TAMAÑO DE FUENTE ---
 
                 document.getElementById('speed-limit-value').innerText = ponerEstiloVelocidadMaxima(calleActualInfo, esAutovia);
 
