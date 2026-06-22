@@ -318,13 +318,12 @@
 
             if (!mapaOfflineListo) document.getElementById('initial-prompt-overlay').style.display = 'flex';
 
-            // ESTILO ACUADO: Mayor claridad general, edificios claros y fuentes de texto estándar de MapLibre
             const ESTILO_MINIMALISTA_OFFLINE = {
                 "version": 8,
                 "sources": { "mapa-curvas-source": { "type": "vector", "url": "pmtiles://" + urlIdentificador, "attribution": "© OSM" } },
                 "glyphs": "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
                 "layers": [
-                    { "id": "fondo-tierra", "type": "background", "paint": { "background-color": "#282c34" } }, // Gris oscuro limpio y moderno (menos fangoso)
+                    { "id": "fondo-tierra", "type": "background", "paint": { "background-color": "#282c34" } },
                     { "id": "capa-bosques-landuse", "type": "fill", "source": "mapa-curvas-source", "source-layer": "landuse", "filter": ["any", ["match", ["get", "class"], ["forest", "wood", "nature_reserve", "park", "orchard", "vineyard", "grass"], true, false], ["match", ["get", "kind"], ["forest", "wood", "nature_reserve", "park", "orchard", "vineyard", "grass"], true, false]], "paint": { "fill-color": "#1e3f20", "fill-opacity": 0.8 } },
                     { "id": "capa-bosques-landcover", "type": "fill", "source": "mapa-curvas-source", "source-layer": "landcover", "filter": ["any", ["match", ["get", "class"], ["wood", "forest", "grass", "park"], true, false], ["match", ["get", "kind"], ["wood", "forest", "grass", "park"], true, false]], "paint": { "fill-color": "#1e3f20", "fill-opacity": 0.8 } },
                     { "id": "capa-bosques-natural", "type": "fill", "source": "mapa-curvas-source", "source-layer": "natural", "filter": ["any", ["match", ["get", "class"], ["wood", "forest", "scrub"], true, false], ["match", ["get", "kind"], ["wood", "forest", "scrub"], true, false]], "paint": { "fill-color": "#1e3f20", "fill-opacity": 0.8 } },
@@ -332,12 +331,11 @@
                     { "id": "capa-rios", "type": "line", "source": "mapa-curvas-source", "source-layer": "waterway", "paint": { "line-color": "#1d4ed8", "line-width": 3 } },
                     { "id": "capa-oceanos", "type": "fill", "source": "mapa-curvas-source", "source-layer": "ocean", "paint": { "fill-color": "#1d4ed8" } },
                     { "id": "capa-zonas-urbanas", "type": "fill", "source": "mapa-curvas-source", "source-layer": "landuse", "filter": ["any", ["match", ["get", "class"], ["residential", "industrial", "commercial", "retail"], true, false], ["match", ["get", "kind"], ["residential", "industrial", "commercial", "retail"], true, false]], "paint": { "fill-color": "#3e4451", "fill-opacity": 0.6 } },
-                    { "id": "capa-edificios", "type": "fill", "source": "mapa-curvas-source", "source-layer": "buildings", "paint": { "fill-color": "#cbd5e1", "fill-opacity": 0.85 } }, // Edificios claros y visibles
-                    { "id": "capa-building", "type": "fill", "source": "mapa-curvas-source", "source-layer": "building", "paint": { "fill-color": "#cbd5e1", "fill-opacity": 0.85 } }, // Edificios claros y visibles
+                    { "id": "capa-edificios", "type": "fill", "source": "mapa-curvas-source", "source-layer": "buildings", "paint": { "fill-color": "#cbd5e1", "fill-opacity": 0.85 } },
+                    { "id": "capa-building", "type": "fill", "source": "mapa-curvas-source", "source-layer": "building", "paint": { "fill-color": "#cbd5e1", "fill-opacity": 0.85 } },
                     { "id": "carreteras-secundarias", "type": "line", "source": "mapa-curvas-source", "source-layer": "streets", "layout": { "line-join": "round", "line-cap": "round" }, "paint": { "line-color": "#64748b", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.2, 15, 3.5] } },
                     { "id": "carreteras-principales", "type": "line", "source": "mapa-curvas-source", "source-layer": "streets", "filter": ["any", ["match", ["get", "class"], ["primary", "secondary", "tertiary"], true, false], ["match", ["get", "kind"], ["primary", "secondary", "tertiary"], true, false]], "layout": { "line-join": "round", "line-cap": "round" }, "paint": { "line-color": "#cbd5e1", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 2.0, 15, 5.5] } },
                     { "id": "autovias", "type": "line", "source": "mapa-curvas-source", "source-layer": "streets", "filter": ["any", ["==", ["get", "class"], "motorway"], ["==", ["get", "kind"], "motorway"]], "layout": { "line-join": "round", "line-cap": "round" }, "paint": { "line-color": "#ffffff", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 3.0, 15, 7.0] } },
-                    // Corrección de fuentes para asegurar renderizado correcto en MapLibre ("Open Sans Regular")
                     { "id": "nombres-ciudades", "type": "symbol", "source": "mapa-curvas-source", "source-layer": "places", "layout": { "text-field": ["get", "name"], "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"], "text-size": ["interpolate", ["linear"], ["zoom"], 8, 12, 15, 18], "text-max-width": 8 }, "paint": { "text-color": "#ffffff", "text-halo-color": "rgba(0, 0, 0, 0.95)", "text-halo-width": 2.5 } },
                     { "id": "nombres-place", "type": "symbol", "source": "mapa-curvas-source", "source-layer": "place", "layout": { "text-field": ["get", "name"], "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"], "text-size": ["interpolate", ["linear"], ["zoom"], 8, 12, 15, 18], "text-max-width": 8 }, "paint": { "text-color": "#ffffff", "text-halo-color": "rgba(0, 0, 0, 0.95)", "text-halo-width": 2.5 } }
                 ]
@@ -379,7 +377,6 @@
 
             window.addEventListener('resize', () => { if (map) map.setOffset(getCenterOffset()); });
 
-            // DETECCIÓN Y REMOCIÓN EXCLUSIVA DEL BOTÓN FULLSCREEN EN IPHONE/IOS
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
             if (isIOS) {
                 const btnFs = document.getElementById('btn-fullscreen');
@@ -466,7 +463,6 @@
                 geometriaRutaGuardada = dataRuta.geometry;
                 indicePasoActual = 0; rutaActiva = true;
                 
-                // Guardamos la telemetría base de la ruta
                 initialDistanceKm = dataRuta.distance / 1000;
                 initialDurationMin = dataRuta.duration / 60;
 
@@ -520,7 +516,6 @@
         function procesarLogicaOffline() {
             if (!rutaActiva || !geometriaRutaGuardada || typeof turf === 'undefined') return;
 
-            // 1. INFO DE CALLES Y OSRM (Cálculo de intersecciones/rotondas a menos de 400m)
             let mostrarCruceOSRM = false;
             let tipoCruceOSRM = null;
             let metrosAlCruce = 9999;
@@ -556,10 +551,8 @@
                 }
             }
 
-            // 2. NUEVO MOTOR MATEMÁTICO TURF.JS (Acumulación de ángulo hacia adelante)
             const line = turf.lineString(geometriaRutaGuardada.coordinates);
             const pt = turf.point(miPosicion);
-            
             const snapped = turf.nearestPointOnLine(line, pt, {units: 'kilometers'});
             const routeStart = turf.point(geometriaRutaGuardada.coordinates[0]);
 
@@ -569,7 +562,6 @@
                 distCurrentKm = turf.length(travelledLine, {units: 'kilometers'});
             } catch(e) {}
 
-            // --- CORRECCIÓN: CÁLCULO EN TIEMPO REAL DE DISTANCIA Y TIEMPO RESTANTE ---
             const totalRouteLengthKm = turf.length(line, {units: 'kilometers'});
             let distRemainingKm = totalRouteLengthKm - distCurrentKm;
             if (distRemainingKm < 0) distRemainingKm = 0;
@@ -578,10 +570,9 @@
 
             let remainingMinutos = 0;
             if (initialDistanceKm > 0) {
-                // Regla de tres adaptativa según lo que falte de línea geográfica respecto al peso original de OSRM
                 remainingMinutos = Math.round((distRemainingKm / initialDistanceKm) * initialDurationMin);
             } else {
-                remainingMinutos = Math.round((distRemainingKm / 60) * 60); // Estimación fallback estándar (60 km/h)
+                remainingMinutos = Math.round((distRemainingKm / 60) * 60); 
             }
             if (remainingMinutos < 0) remainingMinutos = 0;
 
@@ -590,59 +581,91 @@
             } else { 
                 document.getElementById('total-time-display').innerHTML = `<span>${remainingMinutos}</span> MIN`; 
             }
-            // ------------------------------------------------------------------------
 
-            const lookAheadKm = 0.4; 
+            // -------------------------------------------------------------
+            // NUEVO MOTOR DE FÍSICAS: CÁLCULO DE SEVERIDAD (Ángulo / Distancia)
+            // -------------------------------------------------------------
+            const lookAheadKm = 0.4; // Radar de 400 metros
             const upcomingLine = turf.lineSliceAlong(line, distCurrentKm, distCurrentKm + lookAheadKm, {units: 'kilometers'});
             const upcomingLengthKm = turf.length(upcomingLine, {units: 'kilometers'});
 
             let detectedCurve = false;
+            let curveStartDist = 0;
+            let curveLength = 0;
             let curvePeakAngle = 0;
             let curveDir = null;
-            let curveDist = null;
 
-            const stepKm = 0.02; 
+            const stepKm = 0.02; // Tramitos de 20 metros
 
             if (upcomingLengthKm > stepKm * 2) {
-                let pStart = turf.along(upcomingLine, 0, {units: 'kilometers'});
-                let pStep1 = turf.along(upcomingLine, stepKm, {units: 'kilometers'});
-                let currentHeading = turf.bearing(pStart, pStep1);
+                // Sacamos nuestra trayectoria inicial como referencia
+                let startHeading = turf.bearing(
+                    turf.along(upcomingLine, 0, {units: 'kilometers'}), 
+                    turf.along(upcomingLine, stepKm, {units: 'kilometers'})
+                );
 
                 for (let d = stepKm; d < upcomingLengthKm - stepKm; d += stepKm) {
                     let p1 = turf.along(upcomingLine, d, {units: 'kilometers'});
                     let p2 = turf.along(upcomingLine, d + stepKm, {units: 'kilometers'});
                     let futureHeading = turf.bearing(p1, p2);
                     
-                    let diff = futureHeading - currentHeading;
+                    let diff = futureHeading - startHeading;
                     
+                    // Normalizar ángulo entre -180 y 180
                     while (diff <= -180) diff += 360;
                     while (diff > 180) diff -= 360;
 
                     let absDiff = Math.abs(diff);
 
                     if (!detectedCurve) {
-                        if (absDiff >= 15) {
+                        // Umbral para decir "Aquí empieza una curva" (12 grados)
+                        if (absDiff >= 12) {
                             detectedCurve = true;
-                            curveDist = d * 1000;
+                            curveStartDist = d * 1000;
                             curveDir = diff > 0 ? 'der' : 'izq';
                             curvePeakAngle = absDiff;
+                            curveLength = 20; // Empezamos a contar la longitud
                         }
                     } else {
+                        // Si ya estamos dentro de una curva, verificamos si sigue hacia el mismo lado
                         if ((diff > 0 && curveDir === 'der') || (diff < 0 && curveDir === 'izq')) {
+                            
+                            // Comprobar si hay una CONTRA-CURVA (Punto de inflexión de una S)
+                            let pPrev1 = turf.along(upcomingLine, d - stepKm, {units: 'kilometers'});
+                            let pPrev2 = turf.along(upcomingLine, d, {units: 'kilometers'});
+                            let prevSegHeading = turf.bearing(pPrev1, pPrev2);
+                            
+                            let localDiff = futureHeading - prevSegHeading;
+                            while (localDiff <= -180) localDiff += 360;
+                            while (localDiff > 180) localDiff -= 360;
+
+                            // Si de repente la carretera gira bruscamente al lado opuesto, cortamos.
+                            if ((curveDir === 'der' && localDiff < -10) || (curveDir === 'izq' && localDiff > 10)) {
+                                break; 
+                            }
+
+                            // Si sigue en el mismo lado, sumamos metros y actualizamos el ángulo máximo
+                            curveLength += 20;
                             if (absDiff > curvePeakAngle) {
                                 curvePeakAngle = absDiff;
                             }
                         } else {
+                            // La carretera se ha enderezado o cambiado de lado, la curva ha terminado.
                             break; 
                         }
                     }
                 }
             }
 
-            // 3. EVALUACIÓN Y PRIORIZACIÓN DE PELIGRO EN PANTALLA
+            // 3. EVALUACIÓN Y PRIORIZACIÓN DE PELIGRO BASADA EN LA SEVERIDAD REAL
             let peligrosidad = 'low'; 
-            if (curvePeakAngle > 80) peligrosidad = 'high'; 
-            else if (curvePeakAngle >= 45) peligrosidad = 'medium';
+            if (detectedCurve && curveLength > 0) {
+                let severidad = curvePeakAngle / curveLength; // Grados por cada metro de curva
+                
+                // Umbrales calibrados
+                if (severidad >= 1.2) peligrosidad = 'high';
+                else if (severidad >= 0.6) peligrosidad = 'medium';
+            }
 
             const hudTop = document.getElementById('hud-top-danger-meter');
             const hudDistanceEl = document.getElementById('hud-curve-distance');
@@ -652,7 +675,7 @@
                 detectedCurve = false; 
             }
 
-            if (mostrarCruceOSRM && (!detectedCurve || metrosAlCruce <= curveDist + 50)) {
+            if (mostrarCruceOSRM && (!detectedCurve || metrosAlCruce <= curveStartDist + 50)) {
                 hudTop.style.display = 'flex';
                 hudDistanceEl.style.display = 'block'; 
                 hudDistanceEl.innerText = cuantificarMetrosCurva(metrosAlCruce);
@@ -660,7 +683,7 @@
             } 
             else if (detectedCurve) {
                 hudTop.style.display = 'flex';
-                const textoMetros = cuantificarMetrosCurva(curveDist);
+                const textoMetros = cuantificarMetrosCurva(curveStartDist);
                 if (textoMetros === "") hudDistanceEl.style.display = 'none'; 
                 else { hudDistanceEl.style.display = 'block'; hudDistanceEl.innerText = textoMetros; }
                 renderizarHUDCurva(curveDir, peligrosidad, null);
