@@ -185,9 +185,12 @@
 
         let datosRutaGuardada = null;
         let geometriaRutaGuardada = null; 
-        let duracionTotalRuta = 0; 
         let indicePasoActual = 0;
         let abortController = null;
+
+        // Variables para gestionar la estimación de tiempo y distancia proporcionales
+        let initialDistanceKm = parseFloat(localStorage.getItem('initialDistanceKm') || '0');
+        let initialDurationMin = parseFloat(localStorage.getItem('initialDurationMin') || '0');
 
         const getCenterOffset = () => [0, window.innerHeight * (window.innerHeight > window.innerWidth ? 0.16 : 0.04)];
         
@@ -315,26 +318,28 @@
 
             if (!mapaOfflineListo) document.getElementById('initial-prompt-overlay').style.display = 'flex';
 
+            // ESTILO ACUADO: Mayor claridad general, edificios claros y fuentes de texto estándar de MapLibre
             const ESTILO_MINIMALISTA_OFFLINE = {
                 "version": 8,
                 "sources": { "mapa-curvas-source": { "type": "vector", "url": "pmtiles://" + urlIdentificador, "attribution": "© OSM" } },
                 "glyphs": "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
                 "layers": [
-                    { "id": "fondo-tierra", "type": "background", "paint": { "background-color": "#1b1e24" } },
-                    { "id": "capa-bosques-landuse", "type": "fill", "source": "mapa-curvas-source", "source-layer": "landuse", "filter": ["any", ["match", ["get", "class"], ["forest", "wood", "nature_reserve", "park", "orchard", "vineyard", "grass"], true, false], ["match", ["get", "kind"], ["forest", "wood", "nature_reserve", "park", "orchard", "vineyard", "grass"], true, false]], "paint": { "fill-color": "#223326", "fill-opacity": 0.85 } },
-                    { "id": "capa-bosques-landcover", "type": "fill", "source": "mapa-curvas-source", "source-layer": "landcover", "filter": ["any", ["match", ["get", "class"], ["wood", "forest", "grass", "park"], true, false], ["match", ["get", "kind"], ["wood", "forest", "grass", "park"], true, false]], "paint": { "fill-color": "#223326", "fill-opacity": 0.85 } },
-                    { "id": "capa-bosques-natural", "type": "fill", "source": "mapa-curvas-source", "source-layer": "natural", "filter": ["any", ["match", ["get", "class"], ["wood", "forest", "scrub"], true, false], ["match", ["get", "kind"], ["wood", "forest", "scrub"], true, false]], "paint": { "fill-color": "#223326", "fill-opacity": 0.85 } },
-                    { "id": "capa-agua", "type": "fill", "source": "mapa-curvas-source", "source-layer": "water", "paint": { "fill-color": "#2b5c8f" } },
-                    { "id": "capa-rios", "type": "line", "source": "mapa-curvas-source", "source-layer": "waterway", "paint": { "line-color": "#2b5c8f", "line-width": 3 } },
-                    { "id": "capa-oceanos", "type": "fill", "source": "mapa-curvas-source", "source-layer": "ocean", "paint": { "fill-color": "#2b5c8f" } },
-                    { "id": "capa-zonas-urbanas", "type": "fill", "source": "mapa-curvas-source", "source-layer": "landuse", "filter": ["any", ["match", ["get", "class"], ["residential", "industrial", "commercial", "retail"], true, false], ["match", ["get", "kind"], ["residential", "industrial", "commercial", "retail"], true, false]], "paint": { "fill-color": "#232936", "fill-opacity": 0.8 } },
-                    { "id": "capa-edificios", "type": "fill", "source": "mapa-curvas-source", "source-layer": "buildings", "paint": { "fill-color": "#e2e8f0", "fill-opacity": 0.25 } },
-                    { "id": "capa-building", "type": "fill", "source": "mapa-curvas-source", "source-layer": "building", "paint": { "fill-color": "#e2e8f0", "fill-opacity": 0.25 } },
-                    { "id": "carreteras-secundarias", "type": "line", "source": "mapa-curvas-source", "source-layer": "streets", "layout": { "line-join": "round", "line-cap": "round" }, "paint": { "line-color": "#526173", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.2, 15, 3.5] } },
-                    { "id": "carreteras-principales", "type": "line", "source": "mapa-curvas-source", "source-layer": "streets", "filter": ["any", ["match", ["get", "class"], ["primary", "secondary", "tertiary"], true, false], ["match", ["get", "kind"], ["primary", "secondary", "tertiary"], true, false]], "layout": { "line-join": "round", "line-cap": "round" }, "paint": { "line-color": "#94a3b8", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 2.0, 15, 5.5] } },
-                    { "id": "autovias", "type": "line", "source": "mapa-curvas-source", "source-layer": "streets", "filter": ["any", ["==", ["get", "class"], "motorway"], ["==", ["get", "kind"], "motorway"]], "layout": { "line-join": "round", "line-cap": "round" }, "paint": { "line-color": "#f1f5f9", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 3.0, 15, 7.5] } },
-                    { "id": "nombres-ciudades", "type": "symbol", "source": "mapa-curvas-source", "source-layer": "places", "layout": { "text-field": ["get", "name"], "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"], "text-size": ["interpolate", ["linear"], ["zoom"], 8, 12, 15, 18], "text-variable-placement": ["top", "bottom", "left", "right"], "text-padding": 4 }, "paint": { "text-color": "#ffffff", "text-halo-color": "#1a1d24", "text-halo-width": 2 } },
-                    { "id": "nombres-place", "type": "symbol", "source": "mapa-curvas-source", "source-layer": "place", "layout": { "text-field": ["get", "name"], "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"], "text-size": ["interpolate", ["linear"], ["zoom"], 8, 12, 15, 18], "text-variable-placement": ["top", "bottom", "left", "right"], "text-padding": 4 }, "paint": { "text-color": "#ffffff", "text-halo-color": "#1a1d24", "text-halo-width": 2 } }
+                    { "id": "fondo-tierra", "type": "background", "paint": { "background-color": "#282c34" } }, // Gris oscuro limpio y moderno (menos fangoso)
+                    { "id": "capa-bosques-landuse", "type": "fill", "source": "mapa-curvas-source", "source-layer": "landuse", "filter": ["any", ["match", ["get", "class"], ["forest", "wood", "nature_reserve", "park", "orchard", "vineyard", "grass"], true, false], ["match", ["get", "kind"], ["forest", "wood", "nature_reserve", "park", "orchard", "vineyard", "grass"], true, false]], "paint": { "fill-color": "#1e3f20", "fill-opacity": 0.8 } },
+                    { "id": "capa-bosques-landcover", "type": "fill", "source": "mapa-curvas-source", "source-layer": "landcover", "filter": ["any", ["match", ["get", "class"], ["wood", "forest", "grass", "park"], true, false], ["match", ["get", "kind"], ["wood", "forest", "grass", "park"], true, false]], "paint": { "fill-color": "#1e3f20", "fill-opacity": 0.8 } },
+                    { "id": "capa-bosques-natural", "type": "fill", "source": "mapa-curvas-source", "source-layer": "natural", "filter": ["any", ["match", ["get", "class"], ["wood", "forest", "scrub"], true, false], ["match", ["get", "kind"], ["wood", "forest", "scrub"], true, false]], "paint": { "fill-color": "#1e3f20", "fill-opacity": 0.8 } },
+                    { "id": "capa-agua", "type": "fill", "source": "mapa-curvas-source", "source-layer": "water", "paint": { "fill-color": "#1d4ed8" } },
+                    { "id": "capa-rios", "type": "line", "source": "mapa-curvas-source", "source-layer": "waterway", "paint": { "line-color": "#1d4ed8", "line-width": 3 } },
+                    { "id": "capa-oceanos", "type": "fill", "source": "mapa-curvas-source", "source-layer": "ocean", "paint": { "fill-color": "#1d4ed8" } },
+                    { "id": "capa-zonas-urbanas", "type": "fill", "source": "mapa-curvas-source", "source-layer": "landuse", "filter": ["any", ["match", ["get", "class"], ["residential", "industrial", "commercial", "retail"], true, false], ["match", ["get", "kind"], ["residential", "industrial", "commercial", "retail"], true, false]], "paint": { "fill-color": "#3e4451", "fill-opacity": 0.6 } },
+                    { "id": "capa-edificios", "type": "fill", "source": "mapa-curvas-source", "source-layer": "buildings", "paint": { "fill-color": "#cbd5e1", "fill-opacity": 0.85 } }, // Edificios claros y visibles
+                    { "id": "capa-building", "type": "fill", "source": "mapa-curvas-source", "source-layer": "building", "paint": { "fill-color": "#cbd5e1", "fill-opacity": 0.85 } }, // Edificios claros y visibles
+                    { "id": "carreteras-secundarias", "type": "line", "source": "mapa-curvas-source", "source-layer": "streets", "layout": { "line-join": "round", "line-cap": "round" }, "paint": { "line-color": "#64748b", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.2, 15, 3.5] } },
+                    { "id": "carreteras-principales", "type": "line", "source": "mapa-curvas-source", "source-layer": "streets", "filter": ["any", ["match", ["get", "class"], ["primary", "secondary", "tertiary"], true, false], ["match", ["get", "kind"], ["primary", "secondary", "tertiary"], true, false]], "layout": { "line-join": "round", "line-cap": "round" }, "paint": { "line-color": "#cbd5e1", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 2.0, 15, 5.5] } },
+                    { "id": "autovias", "type": "line", "source": "mapa-curvas-source", "source-layer": "streets", "filter": ["any", ["==", ["get", "class"], "motorway"], ["==", ["get", "kind"], "motorway"]], "layout": { "line-join": "round", "line-cap": "round" }, "paint": { "line-color": "#ffffff", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 3.0, 15, 7.0] } },
+                    // Corrección de fuentes para asegurar renderizado correcto en MapLibre ("Open Sans Regular")
+                    { "id": "nombres-ciudades", "type": "symbol", "source": "mapa-curvas-source", "source-layer": "places", "layout": { "text-field": ["get", "name"], "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"], "text-size": ["interpolate", ["linear"], ["zoom"], 8, 12, 15, 18], "text-max-width": 8 }, "paint": { "text-color": "#ffffff", "text-halo-color": "rgba(0, 0, 0, 0.95)", "text-halo-width": 2.5 } },
+                    { "id": "nombres-place", "type": "symbol", "source": "mapa-curvas-source", "source-layer": "place", "layout": { "text-field": ["get", "name"], "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"], "text-size": ["interpolate", ["linear"], ["zoom"], 8, 12, 15, 18], "text-max-width": 8 }, "paint": { "text-color": "#ffffff", "text-halo-color": "rgba(0, 0, 0, 0.95)", "text-halo-width": 2.5 } }
                 ]
             };
 
@@ -351,13 +356,11 @@
                 const destinoGuardado = localStorage.getItem('destinoMoto');
                 const coorsGuardadas = localStorage.getItem('coorsMoto');
                 const pasosGuardados = localStorage.getItem('pasosRutaMoto');
-                const duracionGuardada = localStorage.getItem('duracionRutaMoto');
                 
                 if (destinoGuardado && coorsGuardadas && pasosGuardados) {
                     document.getElementById('destination-input').value = destinoGuardado;
                     destinoCoors = JSON.parse(coorsGuardadas); datosRutaGuardada = JSON.parse(pasosGuardados);
                     indicePasoActual = parseInt(localStorage.getItem('indicePasoMoto') || '0', 10);
-                    if (duracionGuardada) { duracionTotalRuta = parseInt(duracionGuardada, 10); }
                     rutaActiva = true;
                     
                     document.getElementById('top-bar-container').style.display = 'none';
@@ -374,14 +377,14 @@
                 setTimeout(recenterManual, 300); 
             });
 
-            // Ocultar botón Fullscreen exclusivamente en iOS (iPhones/iPads)
+            window.addEventListener('resize', () => { if (map) map.setOffset(getCenterOffset()); });
+
+            // DETECCIÓN Y REMOCIÓN EXCLUSIVA DEL BOTÓN FULLSCREEN EN IPHONE/IOS
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
             if (isIOS) {
-                const btnFull = document.getElementById('btn-fullscreen');
-                if (btnFull) btnFull.style.display = 'none';
+                const btnFs = document.getElementById('btn-fullscreen');
+                if (btnFs) btnFs.style.display = 'none';
             }
-
-            window.addEventListener('resize', () => { if (map) map.setOffset(getCenterOffset()); });
         }
 
         function renderizarHUDCurva(direccion, peligrosidad, tipoEspecial) {
@@ -416,7 +419,7 @@
                 mapaElement.style.backgroundColor = 'rgba(255, 0, 0, 0.16)'; 
                 hudTop.style.background = GRADIENTES.high;
             } else {
-                mapaElement.style.backgroundColor = 'transparent'; 
+                mapaElement.style.backgroundColor = 'rgba(0, 200, 50, 0.1)'; 
                 hudTop.style.background = GRADIENTES.low;
             }
 
@@ -461,13 +464,17 @@
                 const dataRuta = routeData.routes[0];
                 datosRutaGuardada = dataRuta.legs[0].steps; 
                 geometriaRutaGuardada = dataRuta.geometry;
-                duracionTotalRuta = dataRuta.duration;
                 indicePasoActual = 0; rutaActiva = true;
                 
+                // Guardamos la telemetría base de la ruta
+                initialDistanceKm = dataRuta.distance / 1000;
+                initialDurationMin = dataRuta.duration / 60;
+
                 localStorage.setItem('destinoMoto', query); localStorage.setItem('coorsMoto', JSON.stringify(destinoCoors));
                 localStorage.setItem('pasosRutaMoto', JSON.stringify(datosRutaGuardada)); localStorage.setItem('indicePasoMoto', '0');
                 localStorage.setItem('geometriaRutaMoto', JSON.stringify(geometriaRutaGuardada));
-                localStorage.setItem('duracionRutaMoto', duracionTotalRuta.toString());
+                localStorage.setItem('initialDistanceKm', initialDistanceKm.toString());
+                localStorage.setItem('initialDurationMin', initialDurationMin.toString());
                 
                 map.getSource('route-source').setData({ type: 'FeatureCollection', features: [{ type: 'Feature', geometry: geometriaRutaGuardada, properties: {} }] });
                 
@@ -490,13 +497,16 @@
                     const dataRuta = routeData.routes[0];
                     datosRutaGuardada = dataRuta.legs[0].steps; 
                     geometriaRutaGuardada = dataRuta.geometry;
-                    duracionTotalRuta = dataRuta.duration;
                     indicePasoActual = 0;
                     
+                    initialDistanceKm = dataRuta.distance / 1000;
+                    initialDurationMin = dataRuta.duration / 60;
+
                     localStorage.setItem('pasosRutaMoto', JSON.stringify(datosRutaGuardada)); 
                     localStorage.setItem('indicePasoMoto', '0');
                     localStorage.setItem('geometriaRutaMoto', JSON.stringify(geometriaRutaGuardada));
-                    localStorage.setItem('duracionRutaMoto', duracionTotalRuta.toString());
+                    localStorage.setItem('initialDistanceKm', initialDistanceKm.toString());
+                    localStorage.setItem('initialDurationMin', initialDurationMin.toString());
                     
                     map.getSource('route-source').setData({ type: 'FeatureCollection', features: [{ type: 'Feature', geometry: geometriaRutaGuardada, properties: {} }] });
                     procesarLogicaOffline();
@@ -559,21 +569,28 @@
                 distCurrentKm = turf.length(travelledLine, {units: 'kilometers'});
             } catch(e) {}
 
-            // ACTUALIZACIÓN DINÁMICA DE DISTANCIA Y TIEMPO RESTANTE
-            const totalLineKm = turf.length(line, {units: 'kilometers'});
-            const remainingKm = Math.max(0, totalLineKm - distCurrentKm);
-            
-            document.getElementById('total-distance-display').innerHTML = `<span>${remainingKm.toFixed(1)}</span> KM`;
-            
-            if (duracionTotalRuta > 0 && totalLineKm > 0) {
-                const porcentajeRestante = remainingKm / totalLineKm;
-                const remainingMinutes = Math.round(porcentajeRestante * (duracionTotalRuta / 60));
-                if (remainingMinutes >= 60) {
-                    document.getElementById('total-time-display').innerHTML = `<span>${Math.floor(remainingMinutes / 60)}h ${remainingMinutes % 60}m</span>`;
-                } else {
-                    document.getElementById('total-time-display').innerHTML = `<span>${remainingMinutes}</span> MIN`;
-                }
+            // --- CORRECCIÓN: CÁLCULO EN TIEMPO REAL DE DISTANCIA Y TIEMPO RESTANTE ---
+            const totalRouteLengthKm = turf.length(line, {units: 'kilometers'});
+            let distRemainingKm = totalRouteLengthKm - distCurrentKm;
+            if (distRemainingKm < 0) distRemainingKm = 0;
+
+            document.getElementById('total-distance-display').innerHTML = `<span>${distRemainingKm.toFixed(1)}</span> KM`;
+
+            let remainingMinutos = 0;
+            if (initialDistanceKm > 0) {
+                // Regla de tres adaptativa según lo que falte de línea geográfica respecto al peso original de OSRM
+                remainingMinutos = Math.round((distRemainingKm / initialDistanceKm) * initialDurationMin);
+            } else {
+                remainingMinutos = Math.round((distRemainingKm / 60) * 60); // Estimación fallback estándar (60 km/h)
             }
+            if (remainingMinutos < 0) remainingMinutos = 0;
+
+            if (remainingMinutos >= 60) { 
+                document.getElementById('total-time-display').innerHTML = `<span>${Math.floor(remainingMinutos / 60)}h ${remainingMinutos % 60}m</span>`; 
+            } else { 
+                document.getElementById('total-time-display').innerHTML = `<span>${remainingMinutos}</span> MIN`; 
+            }
+            // ------------------------------------------------------------------------
 
             const lookAheadKm = 0.4; 
             const upcomingLine = turf.lineSliceAlong(line, distCurrentKm, distCurrentKm + lookAheadKm, {units: 'kilometers'});
@@ -655,8 +672,11 @@
         }
 
         function cancelarRuta() { 
-            rutaActiva = false; destinoCoors = null; datosRutaGuardada = null; geometriaRutaGuardada = null; indicePasoActual = 0; duracionTotalRuta = 0;
-            localStorage.removeItem('destinoMoto'); localStorage.removeItem('coorsMoto'); localStorage.removeItem('pasosRutaMoto'); localStorage.removeItem('indicePasoMoto'); localStorage.removeItem('geometriaRutaMoto'); localStorage.removeItem('duracionRutaMoto');
+            rutaActiva = false; destinoCoors = null; datosRutaGuardada = null; geometriaRutaGuardada = null; indicePasoActual = 0;
+            initialDistanceKm = 0; initialDurationMin = 0;
+
+            localStorage.removeItem('destinoMoto'); localStorage.removeItem('coorsMoto'); localStorage.removeItem('pasosRutaMoto'); localStorage.removeItem('indicePasoMoto'); localStorage.removeItem('geometriaRutaMoto');
+            localStorage.removeItem('initialDistanceKm'); localStorage.removeItem('initialDurationMin');
             
             map.getSource('route-source').setData({ type: 'FeatureCollection', features: [] }); 
             document.getElementById('map').style.backgroundColor = 'transparent'; document.getElementById('hud-top-danger-meter').style.display = 'none'; 
