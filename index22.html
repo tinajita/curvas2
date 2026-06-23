@@ -44,8 +44,10 @@
         .btn-action { background: #00ff66; color: #000; border: none; padding: 0 18px; font-size: 14px; font-weight: bold; border-radius: 25px; cursor: pointer; text-transform: uppercase; flex-shrink: 0; }
 
         #hud-top-danger-meter { width: 100%; height: 22vh; background: linear-gradient(to bottom, rgba(20,24,20,0.98) 65%, rgba(15,18,15,0.5) 88%, rgba(0,0,0,0)); display: none; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 10px 20px; transition: background 0.3s ease; position: absolute; top: 0; left: 0; right: 0; }
-        #danger-chevrons-container { display: flex; align-items: center; justify-content: center; gap: 8px; height: 70px; }
-        .danger-chevron { width: 52px; height: 70px; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.95)); }
+        /* ¡AQUÍ ESTÁ LA AMPLIACIÓN DE LAS FLECHAS! */
+        #danger-chevrons-container { display: flex; align-items: center; justify-content: center; gap: 12px; height: 100px; }
+        .danger-chevron { width: 85px; height: 100px; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.95)); }
+        
         #hud-curve-distance { font-size: 56px; font-weight: 900; color: #ffffff; letter-spacing: -2px; line-height: 1; text-shadow: 0 4px 12px rgba(0,0,0,1); }
 
         #recenter-container { position: absolute; top: 25vh; right: 15px; display: none; pointer-events: auto; }
@@ -94,8 +96,11 @@
             #top-bar-container { padding: calc(env(safe-area-inset-top, 4px) + 10px) 14px 0 14px; }
             #hud-bottom-row { padding: 0 14px calc(env(safe-area-inset-bottom, 0px) + 20px) 14px; gap: 20px; }
             #hud-top-danger-meter { height: 25vh; flex-direction: row; justify-content: space-between; padding: 0 40px; border-radius: 0; top: 0; left: 0; right: 0; }
-            #danger-chevrons-container { height: 42px; gap: 12px; }
-            .danger-chevron { width: 28px; height: 42px; }
+            
+            /* Ajustes de tamaño flechas para horizontal */
+            #danger-chevrons-container { height: 75px; gap: 15px; }
+            .danger-chevron { width: 60px; height: 75px; }
+            
             #hud-curve-distance { font-size: 38px; }
             #recenter-container { top: 28vh; }
             #hud-bottom-row { align-items: center; }
@@ -197,7 +202,6 @@
 
         let datosRutaGuardada = null;
         let geometriaRutaGuardada = null;
-        // NUEVAS VARIABLES DE CONTROL DE CURVAS GLOBALES
         let coordenadasRutaGlobal = [];
         let curvasRuta = [];
         let indicePasoActual = 0;
@@ -210,8 +214,8 @@
        
         const CONFIG_PELIGRO = { low: { paneles: 1 }, medium: { paneles: 2 }, high: { paneles: 3 } };
         const ICONOS_ESPECIALES = {
-            rotonda: `<svg class="danger-chevron" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:60px; height:60px;"><circle cx="12" cy="12" r="8"/><path d="M12 2v4M12 18v4M4 12h4M16 12h4"/></svg>`,
-            cruce: `<svg class="danger-chevron" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:55px; height:55px;"><path d="M12 2v20M2 12h20"/></svg>`
+            rotonda: `<svg class="danger-chevron" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 2v4M12 18v4M4 12h4M16 12h4"/></svg>`,
+            cruce: `<svg class="danger-chevron" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20"/></svg>`
         };
 
         function toggleFullScreen() {
@@ -333,7 +337,6 @@
 
             if (!mapaOfflineListo) document.getElementById('initial-prompt-overlay').style.display = 'flex';
 
-            // NUEVO BLOQUE DE ESTILO DE MAPA (Edificios gris claro, océanos filtrados y carreteras mejoradas)
             const ESTILO_MINIMALISTA_OFFLINE = {
                 "version": 8,
                 "sources": { 
@@ -348,7 +351,7 @@
                     { 
                         "id": "fondo-tierra", 
                         "type": "background", 
-                        "paint": { "background-color": "#687569" } /* Tierra oliva base */
+                        "paint": { "background-color": "#687569" } 
                     },
                     { 
                         "id": "capa-zonas-verdes", 
@@ -358,7 +361,6 @@
                         "filter": ["match", ["get", "class"], ["forest", "park", "nature_reserve", "wood", "grass"], true, false],
                         "paint": { "fill-color": "#5c6b5d", "fill-opacity": 0.8 } 
                     },
-                    // FILTRADO EXCLUSIVO: Solo se dibuja el Mar/Océano
                     { 
                         "id": "capa-mar-filtrado", 
                         "type": "fill", 
@@ -371,27 +373,27 @@
                         ], 
                         "paint": { "fill-color": "#2a3f54" } 
                     },
-                    // EDIFICIOS EN GRIS CLARO
+                    /* DOBLE CAPA DE EDIFICIOS para abarcar cualquier formato vectorial */
                     { 
-                        "id": "capa-edificios", 
+                        "id": "capa-edificios-plural", 
                         "type": "fill", 
                         "source": "mapa-curvas-source", 
                         "source-layer": "buildings", 
                         "paint": { "fill-color": "#cccccc", "fill-opacity": 0.85 } 
                     },
                     { 
-                        "id": "capa-building", 
+                        "id": "capa-edificios-singular", 
                         "type": "fill", 
                         "source": "mapa-curvas-source", 
                         "source-layer": "building", 
                         "paint": { "fill-color": "#cccccc", "fill-opacity": 0.85 } 
                     },
-                    // CARRETERAS SECUNDARIAS (Blancas y finitas)
+                    /* DEVUELTO A STREETS */
                     { 
                         "id": "carreteras-secundarias", 
                         "type": "line", 
                         "source": "mapa-curvas-source", 
-                        "source-layer": "roads", 
+                        "source-layer": "streets", 
                         "filter": ["match", ["get", "class"], ["minor", "service", "track", "path", "residential"], true, false],
                         "layout": { "line-join": "round", "line-cap": "round" }, 
                         "paint": { 
@@ -399,11 +401,10 @@
                             "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.0, 15, 2.2] 
                         } 
                     },
-                    // CARRETERAS PRINCIPALES (Blancas y normales)
                     { 
                         "id": "carreteras-principales", 
                         "type": "line", 
-                        "source-layer": "roads", 
+                        "source-layer": "streets", 
                         "source": "mapa-curvas-source", 
                         "filter": ["match", ["get", "class"], ["primary", "secondary", "tertiary"], true, false],
                         "layout": { "line-join": "round", "line-cap": "round" }, 
@@ -412,11 +413,10 @@
                             "line-width": ["interpolate", ["linear"], ["zoom"], 10, 2.5, 15, 5.0] 
                         } 
                     },
-                    // AUTOVÍAS Y AUTOPISTAS (Blancas y bien gorditas)
                     { 
                         "id": "autovias", 
                         "type": "line", 
-                        "source-layer": "roads", 
+                        "source-layer": "streets", 
                         "source": "mapa-curvas-source", 
                         "filter": ["match", ["get", "class"], ["motorway", "trunk", "highway"], true, false],
                         "layout": { "line-join": "round", "line-cap": "round" }, 
@@ -468,8 +468,8 @@
                     const geometriaData = localStorage.getItem('geometriaRutaMoto');
                     if (geometriaData) {
                         geometriaRutaGuardada = JSON.parse(geometriaData);
-                        coordenadasRutaGlobal = geometriaRutaGuardada.coordinates; // NUEVO
-                        curvasRuta = detectarCurvas(coordenadasRutaGlobal); // NUEVO
+                        coordenadasRutaGlobal = geometriaRutaGuardada.coordinates;
+                        curvasRuta = detectarCurvas(coordenadasRutaGlobal);
                         map.getSource('route-source').setData({ type: 'FeatureCollection', features: [{ type: 'Feature', geometry: geometriaRutaGuardada, properties: {} }] });
                     }
                     procesarLogicaOffline();
@@ -563,8 +563,8 @@
                 const dataRuta = routeData.routes[0];
                 datosRutaGuardada = dataRuta.legs[0].steps;
                 geometriaRutaGuardada = dataRuta.geometry;
-                coordenadasRutaGlobal = geometriaRutaGuardada.coordinates; // NUEVO
-                curvasRuta = detectarCurvas(coordenadasRutaGlobal); // NUEVO
+                coordenadasRutaGlobal = geometriaRutaGuardada.coordinates; 
+                curvasRuta = detectarCurvas(coordenadasRutaGlobal); 
                 indicePasoActual = 0; rutaActiva = true;
                
                 initialDistanceKm = dataRuta.distance / 1000;
@@ -597,8 +597,8 @@
                     const dataRuta = routeData.routes[0];
                     datosRutaGuardada = dataRuta.legs[0].steps;
                     geometriaRutaGuardada = dataRuta.geometry;
-                    coordenadasRutaGlobal = geometriaRutaGuardada.coordinates; // NUEVO
-                    curvasRuta = detectarCurvas(coordenadasRutaGlobal); // NUEVO
+                    coordenadasRutaGlobal = geometriaRutaGuardada.coordinates; 
+                    curvasRuta = detectarCurvas(coordenadasRutaGlobal); 
                     indicePasoActual = 0;
                    
                     initialDistanceKm = dataRuta.distance / 1000;
@@ -627,7 +627,6 @@
             let metrosAlCruce = 9999;
             let esAutovia = false;
 
-            // ---- LÓGICA DE CALLES Y MANIOBRAS DE OSRM ----
             if (datosRutaGuardada && indicePasoActual < datosRutaGuardada.length) {
                 let pasoActual = datosRutaGuardada[indicePasoActual];
                 let destinoGiroCoors = pasoActual.maneuver.location;
@@ -672,7 +671,6 @@
                 }
             }
 
-            // ---- LÓGICA DE DISTANCIA TOTAL Y TIEMPO RESTANTE ----
             const line = turf.lineString(geometriaRutaGuardada.coordinates);
             const pt = turf.point(miPosicion);
             const snapped = turf.nearestPointOnLine(line, pt, {units: 'kilometers'});
@@ -704,7 +702,6 @@
                 document.getElementById('total-time-display').innerHTML = `<span>${remainingMinutos}</span> MIN`;
             }
 
-            // ---- NUEVA LÓGICA DE NAVEGACIÓN Y SEGUIMIENTO DE CURVAS ----
             let closestIndex = 0;
             let minDist = Infinity;
             if (coordenadasRutaGlobal && coordenadasRutaGlobal.length > 0) {
@@ -723,7 +720,6 @@
             let distProximaCurvaMetros = 9999;
 
             if (curvasRuta && curvasRuta.length > 0) {
-                // 1. Comprobar si el GPS está actualmente DENTRO de los índices de una curva
                 for (let c of curvasRuta) {
                     if (closestIndex >= c.indexInicio && closestIndex <= c.indexFin) {
                         curvaActiva = c;
@@ -732,7 +728,6 @@
                 }
 
                 if (!curvaActiva) {
-                    // 2. Si estamos en recta, buscamos con normalidad la siguiente curva adelante
                     for (let c of curvasRuta) {
                         if (c.indexInicio > closestIndex) {
                             proximaCurva = c;
@@ -753,13 +748,11 @@
                 }
             }
 
-            // Eliminar falsas detecciones en autovías para curvas que no son cerradas
             if (esAutovia && (curvaActiva ? curvaActiva.tipo !== 'Cerrada' : (proximaCurva ? proximaCurva.tipo !== 'Cerrada' : true)) && !mostrarCruceOSRM) {
                 curvaActiva = null;
                 proximaCurva = null;
             }
 
-            // GESTIÓN DE RENDERIZADO AL HUD EXISTENTE
             if (mostrarCruceOSRM && (!curvaActiva && distProximaCurvaMetros >= metrosAlCruce)) {
                 hudTop.style.display = 'flex';
                 hudDistanceEl.style.display = 'block';
@@ -767,19 +760,16 @@
                 renderizarHUDCurva('recto', 'low', tipoCruceOSRM);
             } 
             else if (curvaActiva) {
-                // ESTAMOS DENTRO: Forzamos la UI para evitar saltos o alertas fantasmas
                 let peligrosidad = 'low';
                 if (curvaActiva.tipo === 'Cerrada') peligrosidad = 'high';
                 else if (curvaActiva.tipo === 'Media') peligrosidad = 'medium';
                 let dir = curvaActiva.sentido === 'Derecha' ? 'der' : 'izq';
 
                 hudTop.style.display = 'flex';
-                hudDistanceEl.style.display = 'block';
-                hudDistanceEl.innerText = "EN CURVA";
+                hudDistanceEl.style.display = 'none'; // Aquí ocultamos el texto por completo
                 renderizarHUDCurva(dir, peligrosidad, null);
             } 
             else if (proximaCurva && distProximaCurvaMetros < 400) {
-                // APROXIMÁNDONOS
                 let peligrosidad = 'low';
                 if (proximaCurva.tipo === 'Cerrada') peligrosidad = 'high';
                 else if (proximaCurva.tipo === 'Media') peligrosidad = 'medium';
@@ -796,7 +786,6 @@
                 }
                 renderizarHUDCurva(dir, peligrosidad, null);
 
-                // Lanzar aviso por voz opcional a los 150 metros sin repetir constantemente
                 if (distProximaCurvaMetros <= 150 && distProximaCurvaMetros > 120 && !proximaCurva.avisado) {
                     proximaCurva.avisado = true;
                     let mensajeVoz = "Curva " + proximaCurva.tipo + " a la " + proximaCurva.sentido;
@@ -808,7 +797,6 @@
                 }
             } 
             else {
-                // No hay curvas cerca
                 hudTop.style.display = 'none';
                 mapElement.style.backgroundColor = 'transparent';
             }
@@ -873,7 +861,6 @@
             }, (err) => { document.getElementById('dynamic-alert-banner').style.display = 'block'; }, { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 });
         }
 
-        // ---- NUEVAS FUNCIONES DE CÁLCULO DE CURVAS GLOBALES ----
         function detectarCurvas(coordenadas) {
             const curvas = [];
             if (!coordenadas || coordenadas.length < 4) return curvas;
@@ -898,12 +885,11 @@
                 if (diff < -180) diff += 360;
 
                 let distSegmento = turf.distance(turf.point(p2), turf.point(p3), { units: 'meters' });
-                let esGiroLocal = Math.abs(diff) > 2.5; // Sensibilidad de giro por nodo
+                let esGiroLocal = Math.abs(diff) > 2.5; 
                 let sentidoLocal = diff > 0 ? "Derecha" : "Izquierda";
 
                 if (esGiroLocal) {
                     if (!enCurva) {
-                        // Comenzar una nueva curva delimitada
                         enCurva = true;
                         indexInicio = i - 1;
                         puntosCurva = [p1, p2];
@@ -911,32 +897,27 @@
                         sentidoCurva = sentidoLocal;
                         metrosRectaContador = 0;
                     } else {
-                        // Si cambia drásticamente de sentido de forma limpia, cerramos y abrimos contra-curva
                         if (sentidoLocal !== sentidoCurva && Math.abs(diff) > 4.5) {
                             puntosCurva.push(p2);
                             curvas.push(crearObjetoCurva(puntosCurva, anguloAcumulado, indexInicio, i));
                             
-                            // Nueva contra-curva inmediata
                             indexInicio = i;
                             puntosCurva = [p2, p3];
                             anguloAcumulado = diff;
                             sentidoCurva = sentidoLocal;
                             metrosRectaContador = 0;
                         } else {
-                            // Sigue en la misma curva larga, sumamos ángulo y reseteamos la recta
                             puntosCurva.push(p2);
                             anguloAcumulado += diff;
                             metrosRectaContador = 0;
                         }
                     }
                 } else {
-                    // El tramo es recto o muy suave
                     if (enCurva) {
                         puntosCurva.push(p2);
                         metrosRectaContador += distSegmento;
                         anguloAcumulado += diff;
 
-                        // EXCLUSIVO: Solo cerramos la curva si consolidamos más de 45 metros de recta real
                         if (metrosRectaContador >= 45) {
                             curvas.push(crearObjetoCurva(puntosCurva, anguloAcumulado, indexInicio, i));
                             enCurva = false;
@@ -949,7 +930,6 @@
                 }
             }
 
-            // Si la ruta termina dentro de una curva, la guardamos
             if (enCurva && puntosCurva.length > 1) {
                 curvas.push(crearObjetoCurva(puntosCurva, anguloAcumulado, indexInicio, coordenadas.length - 1));
             }
@@ -960,15 +940,14 @@
         function crearObjetoCurva(puntos, angulo, idxInicio, idxFin) {
             let totalAngulo = Math.abs(angulo);
             let tipo = "Suave";
-            let color = "#00e676"; // Verde por defecto si es muy leve
+            let color = "#00e676"; 
 
-            // Ajuste estricto solicitado: Límite Naranja/Verde fijado en 65 grados
             if (totalAngulo > 105) {
                 tipo = "Cerrada";
-                color = "#ff1744"; // Rojo
+                color = "#ff1744"; 
             } else if (totalAngulo >= 65) {
                 tipo = "Media";
-                color = "#ff9100"; // Naranja
+                color = "#ff9100"; 
             }
 
             let sentido = angulo > 0 ? "Derecha" : "Izquierda";
@@ -983,7 +962,7 @@
                 indexFin: idxFin,
                 index: idxInicio, 
                 coordenadasInicio: puntos[0],
-                avisado: false // Flag para el speech synthesis
+                avisado: false 
             };
         }
 
