@@ -44,10 +44,8 @@
         .btn-action { background: #00ff66; color: #000; border: none; padding: 0 18px; font-size: 14px; font-weight: bold; border-radius: 25px; cursor: pointer; text-transform: uppercase; flex-shrink: 0; }
 
         #hud-top-danger-meter { width: 100%; height: 22vh; background: linear-gradient(to bottom, rgba(20,24,20,0.98) 65%, rgba(15,18,15,0.5) 88%, rgba(0,0,0,0)); display: none; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 10px 20px; transition: background 0.3s ease; position: absolute; top: 0; left: 0; right: 0; }
-        /* ¡AQUÍ ESTÁ LA AMPLIACIÓN DE LAS FLECHAS! */
-        #danger-chevrons-container { display: flex; align-items: center; justify-content: center; gap: 12px; height: 100px; }
-        .danger-chevron { width: 85px; height: 100px; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.95)); }
-        
+        #danger-chevrons-container { display: flex; align-items: center; justify-content: center; gap: 8px; height: 70px; }
+        .danger-chevron { width: 52px; height: 70px; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.95)); }
         #hud-curve-distance { font-size: 56px; font-weight: 900; color: #ffffff; letter-spacing: -2px; line-height: 1; text-shadow: 0 4px 12px rgba(0,0,0,1); }
 
         #recenter-container { position: absolute; top: 25vh; right: 15px; display: none; pointer-events: auto; }
@@ -69,18 +67,8 @@
         #panel-right-street { display: none; pointer-events: auto; max-width: 100%; width: fit-content; }
         .street-pill { background: rgba(25, 30, 24, 0.95); border: 2px solid #00ff66; padding: 10px 14px; border-radius: 18px; box-shadow: 0 6px 20px rgba(0,0,0,0.8); display: flex; align-items: center; gap: 10px; max-width: 100%; box-sizing: border-box; }
        
-        #next-street-name {
-            font-weight: 800; color: #ffffff; text-transform: uppercase; text-align: right; letter-spacing: 0.4px;
-            flex: 0 1 auto;
-            min-width: 0;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .btn-close-route {
-            background: #ff3d00; color: white; border: none; width: 28px; height: 28px; border-radius: 50%; font-weight: bold; cursor: pointer;
-            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-        }
+        #next-street-name { font-weight: 800; color: #ffffff; text-transform: uppercase; text-align: right; letter-spacing: 0.4px; flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .btn-close-route { background: #ff3d00; color: white; border: none; width: 28px; height: 28px; border-radius: 50%; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 
         #bottom-right-actions { display: flex; gap: 10px; pointer-events: auto; justify-content: flex-end; }
         .btn-bottom-icon { background: rgba(25, 30, 24, 0.95); border: 1px solid #424d44; border-bottom: 3px solid #00ff66; width: 46px; height: 46px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 6px 30px rgba(0,0,0,0.8); transition: all 0.2s; flex-shrink: 0; touch-action: none; }
@@ -96,11 +84,8 @@
             #top-bar-container { padding: calc(env(safe-area-inset-top, 4px) + 10px) 14px 0 14px; }
             #hud-bottom-row { padding: 0 14px calc(env(safe-area-inset-bottom, 0px) + 20px) 14px; gap: 20px; }
             #hud-top-danger-meter { height: 25vh; flex-direction: row; justify-content: space-between; padding: 0 40px; border-radius: 0; top: 0; left: 0; right: 0; }
-            
-            /* Ajustes de tamaño flechas para horizontal */
-            #danger-chevrons-container { height: 75px; gap: 15px; }
-            .danger-chevron { width: 60px; height: 75px; }
-            
+            #danger-chevrons-container { height: 42px; gap: 12px; }
+            .danger-chevron { width: 28px; height: 42px; }
             #hud-curve-distance { font-size: 38px; }
             #recenter-container { top: 28vh; }
             #hud-bottom-row { align-items: center; }
@@ -202,8 +187,6 @@
 
         let datosRutaGuardada = null;
         let geometriaRutaGuardada = null;
-        let coordenadasRutaGlobal = [];
-        let curvasRuta = [];
         let indicePasoActual = 0;
         let abortController = null;
 
@@ -214,8 +197,8 @@
        
         const CONFIG_PELIGRO = { low: { paneles: 1 }, medium: { paneles: 2 }, high: { paneles: 3 } };
         const ICONOS_ESPECIALES = {
-            rotonda: `<svg class="danger-chevron" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 2v4M12 18v4M4 12h4M16 12h4"/></svg>`,
-            cruce: `<svg class="danger-chevron" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20"/></svg>`
+            rotonda: `<svg class="danger-chevron" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:60px; height:60px;"><circle cx="12" cy="12" r="8"/><path d="M12 2v4M12 18v4M4 12h4M16 12h4"/></svg>`,
+            cruce: `<svg class="danger-chevron" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:55px; height:55px;"><path d="M12 2v20M2 12h20"/></svg>`
         };
 
         function toggleFullScreen() {
@@ -339,105 +322,25 @@
 
             const ESTILO_MINIMALISTA_OFFLINE = {
                 "version": 8,
-                "sources": { 
-                    "mapa-curvas-source": { 
-                        "type": "vector", 
-                        "url": "pmtiles://" + urlIdentificador, 
-                        "attribution": "© OSM" 
-                    } 
-                },
+                "sources": { "mapa-curvas-source": { "type": "vector", "url": "pmtiles://" + urlIdentificador, "attribution": "© OSM" } },
                 "glyphs": "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
                 "layers": [
-                    { 
-                        "id": "fondo-tierra", 
-                        "type": "background", 
-                        "paint": { "background-color": "#687569" } 
-                    },
-                    { 
-                        "id": "capa-zonas-verdes", 
-                        "type": "fill", 
-                        "source": "mapa-curvas-source", 
-                        "source-layer": "landuse", 
-                        "filter": ["match", ["get", "class"], ["forest", "park", "nature_reserve", "wood", "grass"], true, false],
-                        "paint": { "fill-color": "#5c6b5d", "fill-opacity": 0.8 } 
-                    },
-                    { 
-                        "id": "capa-mar-filtrado", 
-                        "type": "fill", 
-                        "source": "mapa-curvas-source", 
-                        "source-layer": "water", 
-                        "filter": ["any", 
-                            ["==", ["get", "class"], "ocean"], 
-                            ["==", ["get", "kind"], "ocean"], 
-                            ["==", ["get", "pmap:kind"], "ocean"]
-                        ], 
-                        "paint": { "fill-color": "#2a3f54" } 
-                    },
-                    /* DOBLE CAPA DE EDIFICIOS para abarcar cualquier formato vectorial */
-                    { 
-                        "id": "capa-edificios-plural", 
-                        "type": "fill", 
-                        "source": "mapa-curvas-source", 
-                        "source-layer": "buildings", 
-                        "paint": { "fill-color": "#cccccc", "fill-opacity": 0.85 } 
-                    },
-                    { 
-                        "id": "capa-edificios-singular", 
-                        "type": "fill", 
-                        "source": "mapa-curvas-source", 
-                        "source-layer": "building", 
-                        "paint": { "fill-color": "#cccccc", "fill-opacity": 0.85 } 
-                    },
-                    /* DEVUELTO A STREETS */
-                    { 
-                        "id": "carreteras-secundarias", 
-                        "type": "line", 
-                        "source": "mapa-curvas-source", 
-                        "source-layer": "streets", 
-                        "filter": ["match", ["get", "class"], ["minor", "service", "track", "path", "residential"], true, false],
-                        "layout": { "line-join": "round", "line-cap": "round" }, 
-                        "paint": { 
-                            "line-color": "#ffffff", 
-                            "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.0, 15, 2.2] 
-                        } 
-                    },
-                    { 
-                        "id": "carreteras-principales", 
-                        "type": "line", 
-                        "source-layer": "streets", 
-                        "source": "mapa-curvas-source", 
-                        "filter": ["match", ["get", "class"], ["primary", "secondary", "tertiary"], true, false],
-                        "layout": { "line-join": "round", "line-cap": "round" }, 
-                        "paint": { 
-                            "line-color": "#ffffff", 
-                            "line-width": ["interpolate", ["linear"], ["zoom"], 10, 2.5, 15, 5.0] 
-                        } 
-                    },
-                    { 
-                        "id": "autovias", 
-                        "type": "line", 
-                        "source-layer": "streets", 
-                        "source": "mapa-curvas-source", 
-                        "filter": ["match", ["get", "class"], ["motorway", "trunk", "highway"], true, false],
-                        "layout": { "line-join": "round", "line-cap": "round" }, 
-                        "paint": { 
-                            "line-color": "#ffffff", 
-                            "line-width": ["interpolate", ["linear"], ["zoom"], 10, 4.5, 15, 9.0] 
-                        } 
-                    },
-                    { 
-                        "id": "nombres-ciudades", 
-                        "type": "symbol", 
-                        "source": "mapa-curvas-source", 
-                        "source-layer": "places", 
-                        "layout": { 
-                            "text-field": ["get", "name"], 
-                            "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"], 
-                            "text-size": ["interpolate", ["linear"], ["zoom"], 8, 12, 15, 18], 
-                            "text-max-width": 8 
-                        }, 
-                        "paint": { "text-color": "#ffffff", "text-halo-color": "rgba(0, 0, 0, 0.95)", "text-halo-width": 2.5 } 
-                    }
+                    { "id": "fondo-tierra", "type": "background", "paint": { "background-color": "#687569" } },
+                    { "id": "capa-bosques-landuse", "type": "fill", "source": "mapa-curvas-source", "source-layer": "landuse", "filter": ["any", ["match", ["get", "class"], ["forest", "wood", "nature_reserve", "park", "orchard", "vineyard", "grass"], true, false], ["match", ["get", "kind"], ["forest", "wood", "nature_reserve", "park", "orchard", "vineyard", "grass"], true, false]], "paint": { "fill-color": "#5c6b5d", "fill-opacity": 0.8 } },
+                    { "id": "capa-bosques-landcover", "type": "fill", "source": "mapa-curvas-source", "source-layer": "landcover", "filter": ["any", ["match", ["get", "class"], ["wood", "forest", "grass", "park"], true, false], ["match", ["get", "kind"], ["wood", "forest", "grass", "park"], true, false]], "paint": { "fill-color": "#5c6b5d", "fill-opacity": 0.8 } },
+                    { "id": "capa-bosques-natural", "type": "fill", "source": "mapa-curvas-source", "source-layer": "natural", "filter": ["any", ["match", ["get", "class"], ["wood", "forest", "scrub"], true, false], ["match", ["get", "kind"], ["wood", "forest", "scrub"], true, false]], "paint": { "fill-color": "#5c6b5d", "fill-opacity": 0.8 } },
+                    { "id": "capa-agua", "type": "fill", "source": "mapa-curvas-source", "source-layer": "water", "paint": { "fill-color": "#2a3f54" } },
+                    { "id": "capa-rios", "type": "line", "source": "mapa-curvas-source", "source-layer": "waterway", "paint": { "line-color": "#2a3f54", "line-width": 3 } },
+                    { "id": "capa-oceanos", "type": "fill", "source": "mapa-curvas-source", "source-layer": "ocean", "paint": { "fill-color": "#2a3f54" } },
+                    { "id": "capa-zonas-urbanas", "type": "fill", "source": "mapa-curvas-source", "source-layer": "landuse", "filter": ["any", ["match", ["get", "class"], ["residential", "industrial", "commercial", "retail"], true, false], ["match", ["get", "kind"], ["residential", "industrial", "commercial", "retail"], true, false]], "paint": { "fill-color": "#8d9eac", "fill-opacity": 0.6 } },
+                    { "id": "capa-edificios", "type": "fill", "source": "mapa-curvas-source", "source-layer": "buildings", "paint": { "fill-color": "#a8b8c4", "fill-opacity": 0.85 } },
+                    { "id": "capa-building", "type": "fill", "source": "mapa-curvas-source", "source-layer": "building", "paint": { "fill-color": "#a8b8c4", "fill-opacity": 0.85 } },
+                    /* Modificación de color y grosor de vías solicitada */
+                    { "id": "carreteras-secundarias", "type": "line", "source": "mapa-curvas-source", "source-layer": "roads", "layout": { "line-join": "round", "line-cap": "round" }, "paint": { "line-color": "#ffffff", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 0.5, 15, 2.0] } },
+                    { "id": "carreteras-principales", "type": "line", "source": "mapa-curvas-source", "source-layer": "roads", "filter": ["any", ["match", ["get", "class"], ["primary", "secondary", "tertiary"], true, false], ["match", ["get", "kind"], ["primary", "secondary", "tertiary"], true, false]], "layout": { "line-join": "round", "line-cap": "round" }, "paint": { "line-color": "#ffffff", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 2.0, 15, 5.0] } },
+                    { "id": "autovias", "type": "line", "source": "mapa-curvas-source", "source-layer": "roads", "filter": ["any", ["==", ["get", "class"], "motorway"], ["==", ["get", "kind"], "motorway"]], "layout": { "line-join": "round", "line-cap": "round" }, "paint": { "line-color": "#ffffff", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 4.0, 15, 10.0] } },
+                    { "id": "nombres-ciudades", "type": "symbol", "source": "mapa-curvas-source", "source-layer": "places", "layout": { "text-field": ["get", "name"], "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"], "text-size": ["interpolate", ["linear"], ["zoom"], 8, 12, 15, 18], "text-max-width": 8 }, "paint": { "text-color": "#ffffff", "text-halo-color": "rgba(0, 0, 0, 0.95)", "text-halo-width": 2.5 } },
+                    { "id": "nombres-place", "type": "symbol", "source": "mapa-curvas-source", "source-layer": "place", "layout": { "text-field": ["get", "name"], "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"], "text-size": ["interpolate", ["linear"], ["zoom"], 8, 12, 15, 18], "text-max-width": 8 }, "paint": { "text-color": "#ffffff", "text-halo-color": "rgba(0, 0, 0, 0.95)", "text-halo-width": 2.5 } }
                 ]
             };
 
@@ -468,8 +371,6 @@
                     const geometriaData = localStorage.getItem('geometriaRutaMoto');
                     if (geometriaData) {
                         geometriaRutaGuardada = JSON.parse(geometriaData);
-                        coordenadasRutaGlobal = geometriaRutaGuardada.coordinates;
-                        curvasRuta = detectarCurvas(coordenadasRutaGlobal);
                         map.getSource('route-source').setData({ type: 'FeatureCollection', features: [{ type: 'Feature', geometry: geometriaRutaGuardada, properties: {} }] });
                     }
                     procesarLogicaOffline();
@@ -563,8 +464,6 @@
                 const dataRuta = routeData.routes[0];
                 datosRutaGuardada = dataRuta.legs[0].steps;
                 geometriaRutaGuardada = dataRuta.geometry;
-                coordenadasRutaGlobal = geometriaRutaGuardada.coordinates; 
-                curvasRuta = detectarCurvas(coordenadasRutaGlobal); 
                 indicePasoActual = 0; rutaActiva = true;
                
                 initialDistanceKm = dataRuta.distance / 1000;
@@ -597,8 +496,6 @@
                     const dataRuta = routeData.routes[0];
                     datosRutaGuardada = dataRuta.legs[0].steps;
                     geometriaRutaGuardada = dataRuta.geometry;
-                    coordenadasRutaGlobal = geometriaRutaGuardada.coordinates; 
-                    curvasRuta = detectarCurvas(coordenadasRutaGlobal); 
                     indicePasoActual = 0;
                    
                     initialDistanceKm = dataRuta.distance / 1000;
@@ -702,100 +599,105 @@
                 document.getElementById('total-time-display').innerHTML = `<span>${remainingMinutos}</span> MIN`;
             }
 
-            let closestIndex = 0;
-            let minDist = Infinity;
-            if (coordenadasRutaGlobal && coordenadasRutaGlobal.length > 0) {
-                for (let i = 0; i < coordenadasRutaGlobal.length; i++) {
-                    let d = turf.distance(pt, turf.point(coordenadasRutaGlobal[i]), {units: 'meters'});
-                    if (d < minDist) { minDist = d; closestIndex = i; }
+            const lookAheadKm = 0.4;
+            const upcomingLine = turf.lineSliceAlong(line, distCurrentKm, distCurrentKm + lookAheadKm, {units: 'kilometers'});
+            const upcomingLengthKm = turf.length(upcomingLine, {units: 'kilometers'});
+
+            let detectedCurve = false;
+            let curveStartDist = 0;
+            let curveLength = 0;
+            let curvePeakAngle = 0;
+            let curveDir = null;
+
+            const stepKm = 0.02;
+
+            if (upcomingLengthKm > stepKm * 2) {
+                let startHeading = turf.bearing(
+                    turf.along(upcomingLine, 0, {units: 'kilometers'}),
+                    turf.along(upcomingLine, stepKm, {units: 'kilometers'})
+                );
+
+                for (let d = stepKm; d < upcomingLengthKm - stepKm; d += stepKm) {
+                    let p1 = turf.along(upcomingLine, d, {units: 'kilometers'});
+                    let p2 = turf.along(upcomingLine, d + stepKm, {units: 'kilometers'});
+                    let futureHeading = turf.bearing(p1, p2);
+                   
+                    let diff = futureHeading - startHeading;
+                   
+                    while (diff <= -180) diff += 360;
+                    while (diff > 180) diff -= 360;
+
+                    let absDiff = Math.abs(diff);
+
+                    if (!detectedCurve) {
+                        if (absDiff >= 12) {
+                            detectedCurve = true;
+                            curveStartDist = d * 1000;
+                            curveDir = diff > 0 ? 'der' : 'izq';
+                            curvePeakAngle = absDiff;
+                            curveLength = 20;
+                        }
+                    } else {
+                        if ((diff > 0 && curveDir === 'der') || (diff < 0 && curveDir === 'izq')) {
+                           
+                            let pPrev1 = turf.along(upcomingLine, d - stepKm, {units: 'kilometers'});
+                            let pPrev2 = turf.along(upcomingLine, d, {units: 'kilometers'});
+                            let prevSegHeading = turf.bearing(pPrev1, pPrev2);
+                           
+                            let localDiff = futureHeading - prevSegHeading;
+                            while (localDiff <= -180) localDiff += 360;
+                            while (localDiff > 180) localDiff -= 360;
+
+                            if ((curveDir === 'der' && localDiff < -10) || (curveDir === 'izq' && localDiff > 10)) {
+                                break;
+                            }
+
+                            curveLength += 20;
+                            if (absDiff > curvePeakAngle) {
+                                curvePeakAngle = absDiff;
+                            }
+                        } else {
+                            break;
+                        }
+                    }
                 }
+            }
+
+            let peligrosidad = 'low';
+            if (detectedCurve && curveLength > 0) {
+                let severidad = curvePeakAngle / curveLength;
+               
+                if (severidad >= 1.2) peligrosidad = 'high';
+                else if (severidad >= 0.6) peligrosidad = 'medium';
             }
 
             const hudTop = document.getElementById('hud-top-danger-meter');
             const hudDistanceEl = document.getElementById('hud-curve-distance');
             const mapElement = document.getElementById('map');
 
-            let curvaActiva = null;
-            let proximaCurva = null;
-            let distProximaCurvaMetros = 9999;
-
-            if (curvasRuta && curvasRuta.length > 0) {
-                for (let c of curvasRuta) {
-                    if (closestIndex >= c.indexInicio && closestIndex <= c.indexFin) {
-                        curvaActiva = c;
-                        break;
-                    }
-                }
-
-                if (!curvaActiva) {
-                    for (let c of curvasRuta) {
-                        if (c.indexInicio > closestIndex) {
-                            proximaCurva = c;
-                            break;
-                        }
-                    }
-                    if (proximaCurva) {
-                        let distanciaMetros = 0;
-                        for (let k = closestIndex; k < proximaCurva.indexInicio && k < coordenadasRutaGlobal.length - 1; k++) {
-                            distanciaMetros += turf.distance(
-                                turf.point(coordenadasRutaGlobal[k]), 
-                                turf.point(coordenadasRutaGlobal[k + 1]), 
-                                { units: 'meters' }
-                            );
-                        }
-                        distProximaCurvaMetros = Math.round(distanciaMetros);
-                    }
-                }
+            if (esAutovia && peligrosidad !== 'high' && !mostrarCruceOSRM) {
+                detectedCurve = false;
             }
 
-            if (esAutovia && (curvaActiva ? curvaActiva.tipo !== 'Cerrada' : (proximaCurva ? proximaCurva.tipo !== 'Cerrada' : true)) && !mostrarCruceOSRM) {
-                curvaActiva = null;
-                proximaCurva = null;
-            }
-
-            if (mostrarCruceOSRM && (!curvaActiva && distProximaCurvaMetros >= metrosAlCruce)) {
+            if (mostrarCruceOSRM && (!detectedCurve || metrosAlCruce <= curveStartDist + 50)) {
                 hudTop.style.display = 'flex';
                 hudDistanceEl.style.display = 'block';
                 hudDistanceEl.innerText = cuantificarMetrosCurva(metrosAlCruce);
                 renderizarHUDCurva('recto', 'low', tipoCruceOSRM);
-            } 
-            else if (curvaActiva) {
-                let peligrosidad = 'low';
-                if (curvaActiva.tipo === 'Cerrada') peligrosidad = 'high';
-                else if (curvaActiva.tipo === 'Media') peligrosidad = 'medium';
-                let dir = curvaActiva.sentido === 'Derecha' ? 'der' : 'izq';
-
-                hudTop.style.display = 'flex';
-                hudDistanceEl.style.display = 'none'; // Aquí ocultamos el texto por completo
-                renderizarHUDCurva(dir, peligrosidad, null);
-            } 
-            else if (proximaCurva && distProximaCurvaMetros < 400) {
-                let peligrosidad = 'low';
-                if (proximaCurva.tipo === 'Cerrada') peligrosidad = 'high';
-                else if (proximaCurva.tipo === 'Media') peligrosidad = 'medium';
-                let dir = proximaCurva.sentido === 'Derecha' ? 'der' : 'izq';
-
-                hudTop.style.display = 'flex';
-                const textoMetros = cuantificarMetrosCurva(distProximaCurvaMetros);
-                
+            }
+            else if (detectedCurve) {
+                const textoMetros = cuantificarMetrosCurva(curveStartDist);
                 if (textoMetros === "") {
-                    hudDistanceEl.style.display = 'none';
+                    /* Modificación: Se oculta por completo la alerta en curva al bajar de los 25m */
+                    hudTop.style.display = 'none';
+                    mapElement.style.backgroundColor = 'transparent';
                 } else {
+                    hudTop.style.display = 'flex';
                     hudDistanceEl.style.display = 'block';
                     hudDistanceEl.innerText = textoMetros;
+                    renderizarHUDCurva(curveDir, peligrosidad, null);
                 }
-                renderizarHUDCurva(dir, peligrosidad, null);
-
-                if (distProximaCurvaMetros <= 150 && distProximaCurvaMetros > 120 && !proximaCurva.avisado) {
-                    proximaCurva.avisado = true;
-                    let mensajeVoz = "Curva " + proximaCurva.tipo + " a la " + proximaCurva.sentido;
-                    if ('speechSynthesis' in window && !window.speechSynthesis.speaking) {
-                        let utterance = new SpeechSynthesisUtterance(mensajeVoz);
-                        utterance.lang = 'es-ES';
-                        window.speechSynthesis.speak(utterance);
-                    }
-                }
-            } 
+            }
             else {
                 hudTop.style.display = 'none';
                 mapElement.style.backgroundColor = 'transparent';
@@ -805,7 +707,6 @@
         function cancelarRuta() {
             rutaActiva = false; destinoCoors = null; datosRutaGuardada = null; geometriaRutaGuardada = null; indicePasoActual = 0;
             initialDistanceKm = 0; initialDurationMin = 0;
-            coordenadasRutaGlobal = []; curvasRuta = [];
 
             localStorage.removeItem('destinoMoto'); localStorage.removeItem('coorsMoto'); localStorage.removeItem('pasosRutaMoto'); localStorage.removeItem('indicePasoMoto'); localStorage.removeItem('geometriaRutaMoto');
             localStorage.removeItem('initialDistanceKm'); localStorage.removeItem('initialDurationMin');
@@ -859,111 +760,6 @@
                
                 if (!mapaDesplazadoPorUsuario) { map.easeTo({ center: miPosicion, bearing: lastValidBearing, zoom: nivelZoomActual, offset: getCenterOffset(), duration: 800, easing: (t) => t * (2 - t) }); }
             }, (err) => { document.getElementById('dynamic-alert-banner').style.display = 'block'; }, { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 });
-        }
-
-        function detectarCurvas(coordenadas) {
-            const curvas = [];
-            if (!coordenadas || coordenadas.length < 4) return curvas;
-
-            let enCurva = false;
-            let puntosCurva = [];
-            let anguloAcumulado = 0;
-            let sentidoCurva = null;
-            let indexInicio = 0;
-            let metrosRectaContador = 0;
-
-            for (let i = 1; i < coordenadas.length - 1; i++) {
-                let p1 = coordenadas[i - 1];
-                let p2 = coordenadas[i];
-                let p3 = coordenadas[i + 1];
-
-                let b1 = turf.bearing(turf.point(p1), turf.point(p2));
-                let b2 = turf.bearing(turf.point(p2), turf.point(p3));
-                let diff = b2 - b1;
-                
-                if (diff > 180) diff -= 360;
-                if (diff < -180) diff += 360;
-
-                let distSegmento = turf.distance(turf.point(p2), turf.point(p3), { units: 'meters' });
-                let esGiroLocal = Math.abs(diff) > 2.5; 
-                let sentidoLocal = diff > 0 ? "Derecha" : "Izquierda";
-
-                if (esGiroLocal) {
-                    if (!enCurva) {
-                        enCurva = true;
-                        indexInicio = i - 1;
-                        puntosCurva = [p1, p2];
-                        anguloAcumulado = diff;
-                        sentidoCurva = sentidoLocal;
-                        metrosRectaContador = 0;
-                    } else {
-                        if (sentidoLocal !== sentidoCurva && Math.abs(diff) > 4.5) {
-                            puntosCurva.push(p2);
-                            curvas.push(crearObjetoCurva(puntosCurva, anguloAcumulado, indexInicio, i));
-                            
-                            indexInicio = i;
-                            puntosCurva = [p2, p3];
-                            anguloAcumulado = diff;
-                            sentidoCurva = sentidoLocal;
-                            metrosRectaContador = 0;
-                        } else {
-                            puntosCurva.push(p2);
-                            anguloAcumulado += diff;
-                            metrosRectaContador = 0;
-                        }
-                    }
-                } else {
-                    if (enCurva) {
-                        puntosCurva.push(p2);
-                        metrosRectaContador += distSegmento;
-                        anguloAcumulado += diff;
-
-                        if (metrosRectaContador >= 45) {
-                            curvas.push(crearObjetoCurva(puntosCurva, anguloAcumulado, indexInicio, i));
-                            enCurva = false;
-                            puntosCurva = [];
-                            anguloAcumulado = 0;
-                            sentidoCurva = null;
-                            metrosRectaContador = 0;
-                        }
-                    }
-                }
-            }
-
-            if (enCurva && puntosCurva.length > 1) {
-                curvas.push(crearObjetoCurva(puntosCurva, anguloAcumulado, indexInicio, coordenadas.length - 1));
-            }
-
-            return curvas;
-        }
-
-        function crearObjetoCurva(puntos, angulo, idxInicio, idxFin) {
-            let totalAngulo = Math.abs(angulo);
-            let tipo = "Suave";
-            let color = "#00e676"; 
-
-            if (totalAngulo > 105) {
-                tipo = "Cerrada";
-                color = "#ff1744"; 
-            } else if (totalAngulo >= 65) {
-                tipo = "Media";
-                color = "#ff9100"; 
-            }
-
-            let sentido = angulo > 0 ? "Derecha" : "Izquierda";
-
-            return {
-                puntos: puntos,
-                angulo: totalAngulo,
-                tipo: tipo,
-                color: color,
-                sentido: sentido,
-                indexInicio: idxInicio,
-                indexFin: idxFin,
-                index: idxInicio, 
-                coordenadasInicio: puntos[0],
-                avisado: false 
-            };
         }
 
         if ('wakeLock' in navigator) {
