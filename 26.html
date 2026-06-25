@@ -182,7 +182,8 @@
 
     <script>
         const PMTILES_URL = 'https://files.catbox.moe/jv4azt.pmtiles';
-        const SPEED_GEOJSON_URL = 'https://files.catbox.moe/vd3bau.geojson';
+        const URL_VELOCIDADES = 'https://files.catbox.moe/vd3bau.geojson';
+        const URL_POIS = 'https://files.catbox.moe/v03xnr.geojson';
         const NOMBRE_CACHE = 'motonav-map-store';
        
         let map;
@@ -203,6 +204,10 @@
 
         let initialDistanceKm = parseFloat(localStorage.getItem('initialDistanceKm') || '0');
         let initialDurationMin = parseFloat(localStorage.getItem('initialDurationMin') || '0');
+
+        // Variables globales para respaldo de nombre de vía al usar la capa de límites de velocidad
+        let ultimaCalleInfo = "";
+        let ultimaEsAutovia = false;
 
         const getCenterOffset = () => [0, window.innerHeight * (window.innerHeight > window.innerWidth ? 0.16 : 0.04)];
        
@@ -276,15 +281,20 @@
             abortController = new AbortController();
 
             try {
-                // Descarga inicial rápida del GeoJSON de velocidades máximas
-                const respuestaGeo = await fetch(SPEED_GEOJSON_URL, { signal: abortController.signal });
-                if (respuestaGeo.ok) {
-                    const geojsonBlob = await respuestaGeo.blob();
-                    const cache = await caches.open(NOMBRE_CACHE);
-                    await cache.put(SPEED_GEOJSON_URL, new Response(geojsonBlob, { headers: { 'Content-Type': 'application/json' } }));
-                }
+                const cache = await caches.open(NOMBRE_CACHE);
+                
+                // 1. Descargando capa de velocidades
+                progreso.innerText = '0% (Velocidades...)';
+                const resVel = await fetch(URL_VELOCIDADES, { signal: abortController.signal });
+                if (resVel.ok) await cache.put(URL_VELOCIDADES, resVel.clone());
 
-                // Descarga pesada por fragmentos del PMTiles del mapa base
+                // 2. Descargando capa de POIs
+                barra.style.width = '10%'; progreso.innerText = '10% (Pueblos/POIs...)';
+                const resPois = await fetch(URL_POIS, { signal: abortController.signal });
+                if (resPois.ok) await cache.put(URL_POIS, resPois.clone());
+
+                // 3. Descargando base PMTILES
+                barra.style.width = '20%'; progreso.innerText = '20% (Mapa base...)';
                 const respuesta = await fetch(PMTILES_URL, { signal: abortController.signal });
                 if (!respuesta.ok) throw new Error("Fallo de red.");
                 const tamanoTotal = parseInt(respuesta.headers.get('content-length') || '0', 10);
@@ -296,47 +306,99 @@
                     if (done) break;
                     fragmentos.push(value); bytesDescargados += value.length;
                     if (tamanoTotal > 0) {
-                        const porcentaje = Math.round((bytesDescargados / tamanoTotal) * 100);
+                        const porcentaje = 20 + Math.round((bytesDescargados / tamanoTotal) * 80);
                         barra.style.width = porcentaje + '%'; progreso.innerText = porcentaje + '%';
                     }
                 }
                 const mapaCompletoBlob = new Blob(fragmentos);
-                const cache = await caches.open(NOMBRE_CACHE);
                 await cache.put(PMTILES_URL, new Response(mapaCompletoBlob, { headers: { 'Content-Type': 'application/octet-stream' } }));
+                
                 overlay.style.display = 'none';
                 document.getElementById('btn-download-offline').style.display = 'none';
-                mostrarNotificacionPersonalizada("✅ Mapa descargado con éxito.", "#00ff66", "#000");
+                mostrarNotificacionPersonalizada("✅ Datos offline descargados con éxito.", "#00ff66", "#000");
+                
+                // Recargar capas por si acabamos de obtenerlas
+                cargarCapasGeoJSON();
             } catch (error) {
                 overlay.style.display = 'none'; document.getElementById('btn-download-offline').style.display = 'flex';
-                if (error.name !== 'AbortError') mostrarNotificacionPersonalizada("❌ Error al descargar el mapa.", "#ff3d00", "white");
+                if (error.name !== 'AbortError') mostrarNotificacionPersonalizada("❌ Error al descargar.", "#ff3d00", "white");
             }
         }
 
         function cancelarDescarga() { if (abortController) abortController.abort(); }
 
+        // Nueva función asíncrona para cargar y procesar los GeoJSON 
+        async function cargarCapasGeoJSON() {
+            try {
+                const cache = await caches.open(NOMBRE_CACHE);
+                
+                // Cargar GeoJSON de Velocidades
+                let resVel = await cache.match(URL_VELOCIDADES);
+                if (!resVel) resVel = await fetch(URL_VELOCIDADES).catch(()=>null);
+                if (resVel && (!map.getSource('speeds-source'))) {
+                    const dataVel = await resVel.json();
+                    map.addSource('speeds-source', { type: 'geojson', data: dataVel });
+                    map.addLayer({
+                        id: 'speeds-layer',
+                        type: 'line',
+                        source: 'speeds-source',
+                        paint: {
+                            // Esta línea se hace transparente para no estorbar, pero será la que consultemos con las coordenadas de GPS
+                            'line-color': 'rgba(0, 0, 0, 0)', 
+                            'line-width': 15 
+                        }
+                    });
+                }
+
+                // Cargar GeoJSON de POIs y Pueblos
+                let resPois = await cache.match(URL_POIS);
+                if (!resPois) resPois = await fetch(URL_POIS).catch(()=>null);
+                if (resPois && (!map.getSource('pois-source'))) {
+                    const dataPois = await resPois.json();
+                    map.addSource('pois-source', { type: 'geojson', data: dataPois });
+                    
+                    // Capa de los puntitos de interés
+                    map.addLayer({
+                        id: 'pois-circles',
+                        type: 'circle',
+                        source: 'pois-source',
+                        paint: {
+                            'circle-radius': 4,
+                            'circle-color': '#00ff66',
+                            'circle-stroke-width': 1,
+                            'circle-stroke-color': '#000000'
+                        }
+                    });
+                    
+                    // Capa del texto del interés (pueblos/pois)
+                    map.addLayer({
+                        id: 'pois-layer',
+                        type: 'symbol',
+                        source: 'pois-source',
+                        layout: {
+                            // Coge cualquiera de estos parámetros que contengan el texto a mostrar
+                            'text-field': ['coalesce', ['get', 'name'], ['get', 'nombre'], ['get', 'Name'], ['get', 'NOMBRE'], 'POI'],
+                            'text-font': ["Open Sans Regular", "Arial Unicode MS Regular"],
+                            'text-size': ["interpolate", ["linear"], ["zoom"], 10, 10, 15, 14, 20, 18],
+                            'text-anchor': 'bottom',
+                            'text-offset': [0, -0.6]
+                        },
+                        paint: {
+                            'text-color': '#ffffff',
+                            'text-halo-color': 'rgba(0, 0, 0, 0.95)',
+                            'text-halo-width': 2
+                        }
+                    });
+                }
+            } catch(e) {
+                console.error("Error cargando capas GeoJSON", e);
+            }
+        }
+
         async function initNavigator() {
             const protocol = new pmtiles.Protocol();
             maplibregl.addProtocol("pmtiles", protocol.tile);
             let urlIdentificador = PMTILES_URL; let mapaOfflineListo = false;
-
-            // Intentar cargar la capa GeoJSON de velocidades desde caché (u online si no existe)
-            let geojsonData = { type: 'FeatureCollection', features: [] };
-            try {
-                const cache = await caches.open(NOMBRE_CACHE);
-                const respuestaGuardadaGeo = await cache.match(SPEED_GEOJSON_URL);
-                if (respuestaGuardadaGeo) {
-                    geojsonData = await respuestaGuardadaGeo.json();
-                } else {
-                    const respuestaGeo = await fetch(SPEED_GEOJSON_URL);
-                    geojsonData = await respuestaGeo.json();
-                }
-            } catch (error) {
-                try {
-                    const respuestaGeo = await fetch(SPEED_GEOJSON_URL);
-                    geojsonData = await respuestaGeo.json();
-                } catch(e) {}
-            }
-            window.globalLimitesGeoJSON = geojsonData;
 
             try {
                 const cache = await caches.open(NOMBRE_CACHE);
@@ -361,10 +423,7 @@
 
             const ESTILO_MINIMALISTA_OFFLINE = {
                 "version": 8,
-                "sources": { 
-                    "mapa-curvas-source": { "type": "vector", "url": "pmtiles://" + urlIdentificador, "attribution": "© OSM" },
-                    "source-limites": { "type": "geojson", "data": geojsonData }
-                },
+                "sources": { "mapa-curvas-source": { "type": "vector", "url": "pmtiles://" + urlIdentificador, "attribution": "© OSM" } },
                 "glyphs": "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
                 "layers": [
                     { "id": "fondo-tierra", "type": "background", "paint": { "background-color": "#687569" } },
@@ -383,45 +442,8 @@
                     { "id": "carreteras-principales", "type": "line", "source": "mapa-curvas-source", "source-layer": "roads", "filter": ["any", ["match", ["get", "class"], ["primary", "secondary", "tertiary"], true, false], ["match", ["get", "kind"], ["primary", "secondary", "tertiary"], true, false]], "layout": { "line-join": "round", "line-cap": "round" }, "paint": { "line-color": "#ffffff", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 2.0, 15, 6.0, 20, 18.0] } },
                     { "id": "autovias", "type": "line", "source": "mapa-curvas-source", "source-layer": "roads", "filter": ["any", ["==", ["get", "class"], "motorway"], ["==", ["get", "kind"], "motorway"]], "layout": { "line-join": "round", "line-cap": "round" }, "paint": { "line-color": "#ffffff", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 4.0, 15, 10.0, 20, 32.0] } },
                     
-                    // Capa visual opcional sobreimpresa para ver los límites de velocidad en color difuminado
-                    {
-                        "id": "lineas-velocidad-visual",
-                        "type": "line",
-                        "source": "source-limites",
-                        "layout": { "line-join": "round", "line-cap": "round" },
-                        "paint": {
-                            "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.5, 15, 4.0, 20, 10.0],
-                            "line-color": [
-                                "match", ["get", "maxspeed"],
-                                "30", "#00ff66",
-                                "50", "#ffff00",
-                                "90", "#ff8c00",
-                                "120", "#ff0000",
-                                "rgba(255,255,255,0.3)"
-                            ],
-                            "line-opacity": 0.4
-                        }
-                    },
-
-                    // FILTRADO DE NOMBRES: Muestra estrictamente pueblos y ciudades, eliminando fincas/cortijos
-                    { 
-                        "id": "nombres-ciudades", 
-                        "type": "symbol", 
-                        "source": "mapa-curvas-source", 
-                        "source-layer": "places", 
-                        "filter": ["match", ["coalesce", ["get", "class"], ["get", "kind"], ["get", "type"], ""], ["city", "town", "village"], true, false],
-                        "layout": { "text-field": ["get", "name"], "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"], "text-size": ["interpolate", ["linear"], ["zoom"], 8, 12, 15, 18], "text-max-width": 8 }, 
-                        "paint": { "text-color": "#ffffff", "text-halo-color": "rgba(0, 0, 0, 0.95)", "text-halo-width": 2.5 } 
-                    },
-                    { 
-                        "id": "nombres-place", 
-                        "type": "symbol", 
-                        "source": "mapa-curvas-source", 
-                        "source-layer": "place", 
-                        "filter": ["match", ["coalesce", ["get", "class"], ["get", "kind"], ["get", "type"], ""], ["city", "town", "village"], true, false],
-                        "layout": { "text-field": ["get", "name"], "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"], "text-size": ["interpolate", ["linear"], ["zoom"], 8, 12, 15, 18], "text-max-width": 8 }, 
-                        "paint": { "text-color": "#ffffff", "text-halo-color": "rgba(0, 0, 0, 0.95)", "text-halo-width": 2.5 } 
-                    }
+                    { "id": "nombres-ciudades", "type": "symbol", "source": "mapa-curvas-source", "source-layer": "places", "layout": { "text-field": ["get", "name"], "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"], "text-size": ["interpolate", ["linear"], ["zoom"], 8, 12, 15, 18], "text-max-width": 8 }, "paint": { "text-color": "#ffffff", "text-halo-color": "rgba(0, 0, 0, 0.95)", "text-halo-width": 2.5 } },
+                    { "id": "nombres-place", "type": "symbol", "source": "mapa-curvas-source", "source-layer": "place", "layout": { "text-field": ["get", "name"], "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"], "text-size": ["interpolate", ["linear"], ["zoom"], 8, 12, 15, 18], "text-max-width": 8 }, "paint": { "text-color": "#ffffff", "text-halo-color": "rgba(0, 0, 0, 0.95)", "text-halo-width": 2.5 } }
                 ]
             };
 
@@ -432,7 +454,15 @@
             map.doubleClickZoom.disable();
 
             map.on('load', () => {
-                configurarCapasRuta(); crearIconoNavegacion(); arrancarSeguimientoGPS(); configurarEventosGestos();
+                configurarCapasRuta(); 
+                crearIconoNavegacion(); 
+                configurarEventosGestos();
+                
+                // Cargamos las nuevas capas GeoJSON (Velocidades + POIS). La promesa no detiene la UI para no bloquear GPS
+                cargarCapasGeoJSON();
+                
+                arrancarSeguimientoGPS(); 
+                
                 if (map.touchZoomRotate) { map.touchZoomRotate.disableRotation(); }
                
                 const destinoGuardado = localStorage.getItem('destinoMoto');
@@ -604,7 +634,6 @@
             let tipoCruceOSRM = null;
             let metrosAlCruce = 9999;
             let esAutovia = false;
-            let calleActualInfo = "En ruta";
 
             if (datosRutaGuardada && indicePasoActual < datosRutaGuardada.length) {
                 let pasoActual = datosRutaGuardada[indicePasoActual];
@@ -619,11 +648,15 @@
                     metrosRealesGiro = Math.round(calcularDistanciaHaversine(miPosicion[0], miPosicion[1], destinoGiroCoors[0], destinoGiroCoors[1]));
                 }
 
-                calleActualInfo = pasoActual.name || pasoActual.ref || "En ruta";
+                const calleActualInfo = pasoActual.name || pasoActual.ref || "En ruta";
                 let proximoGiro = datosRutaGuardada[indicePasoActual + 1] || pasoActual;
                 const proximaCalleInfo = proximoGiro.name || proximoGiro.ref || "Tramo Continuo";
                
                 esAutovia = /A-\d|AP-\d|Autovía|Autopista/i.test(calleActualInfo) || /A-\d|AP-\d|Autovía|Autopista/i.test(proximaCalleInfo);
+                
+                // Actualizamos las variables globales para el límite de velocidad por si no encaja con el GeoJSON
+                ultimaCalleInfo = calleActualInfo;
+                ultimaEsAutovia = esAutovia;
 
                 const nextStreetEl = document.getElementById('next-street-name');
                 nextStreetEl.innerText = proximaCalleInfo;
@@ -638,45 +671,6 @@
                     nextStreetEl.style.fontSize = '13px';
                 } else {
                     nextStreetEl.style.fontSize = '15px';
-                }
-
-                // GESTIÓN ONLINE/OFFLINE DE LÍMITES DE VELOCIDAD POR GEOPOSICIÓN (GEOJSON)
-                let velocidadDetectada = null;
-                if (window.globalLimitesGeoJSON && window.globalLimitesGeoJSON.features && window.globalLimitesGeoJSON.features.length > 0) {
-                    try {
-                        const ptPos = turf.point(miPosicion);
-                        let minDistance = 0.04; // 40 metros de umbral para tolerancia de error de posición GPS
-                        let closestFeature = null;
-                        
-                        for (let i = 0; i < window.globalLimitesGeoJSON.features.length; i++) {
-                            const f = window.globalLimitesGeoJSON.features[i];
-                            if (!f.geometry || !f.geometry.coordinates) continue;
-                            
-                            const coords = f.geometry.coordinates;
-                            let samplePt = f.geometry.type === 'LineString' ? coords[0] : (Array.isArray(coords[0]) ? coords[0][0] : null);
-                            if (!samplePt) continue;
-                            
-                            // Bounding box perimetral para evitar latencias de CPU en móviles en bucles largos
-                            if (Math.abs(samplePt[1] - miPosicion[1]) > 0.008 || Math.abs(samplePt[0] - miPosicion[0]) > 0.008) {
-                                continue;
-                            }
-                            
-                            const dist = turf.pointToLineDistance(ptPos, f, {units: 'kilometers'});
-                            if (dist < minDistance) {
-                                minDistance = dist;
-                                closestFeature = f;
-                            }
-                        }
-                        if (closestFeature && closestFeature.properties && closestFeature.properties.maxspeed) {
-                            velocidadDetectada = closestFeature.properties.maxspeed;
-                        }
-                    } catch (err) { console.error("Error buscando velocidad en GeoJSON", err); }
-                }
-
-                if (velocidadDetectada) {
-                    document.getElementById('speed-limit-value').innerText = velocidadDetectada;
-                } else {
-                    document.getElementById('speed-limit-value').innerText = ponerEstiloVelocidadMaxima(calleActualInfo, esAutovia);
                 }
 
                 const tipoManiobra = proximoGiro.maneuver.type;
@@ -835,6 +829,7 @@
         function cancelarRuta() {
             rutaActiva = false; destinoCoors = null; datosRutaGuardada = null; geometriaRutaGuardada = null; indicePasoActual = 0;
             initialDistanceKm = 0; initialDurationMin = 0;
+            ultimaCalleInfo = ""; ultimaEsAutovia = false;
 
             localStorage.removeItem('destinoMoto'); localStorage.removeItem('coorsMoto'); localStorage.removeItem('pasosRutaMoto'); localStorage.removeItem('indicePasoMoto'); localStorage.removeItem('geometriaRutaMoto');
             localStorage.removeItem('initialDistanceKm'); localStorage.removeItem('initialDurationMin');
@@ -846,6 +841,35 @@
             document.getElementById('top-bar-container').style.display = 'flex';
             document.getElementById('destination-input').value = '';
             recenterManual();
+        }
+
+        // Nueva función dinámica para gestionar las velocidades usando la Capa GeoJSON
+        function actualizarLimiteVelocidad() {
+            // Empieza asumiendo el respaldo estándar
+            let limite = ponerEstiloVelocidadMaxima(ultimaCalleInfo, ultimaEsAutovia);
+            
+            // Si la capa GeoJSON existe, comprobamos si circulamos por alguna de sus carreteras
+            if (map && map.isStyleLoaded() && map.getLayer('speeds-layer')) {
+                const point = map.project(miPosicion);
+                // Búsqueda en un área cercana de ±20px de donde está nuestro GPS
+                const bbox = [[point.x - 20, point.y - 20], [point.x + 20, point.y + 20]];
+                const speedFeatures = map.queryRenderedFeatures(bbox, { layers: ['speeds-layer'] });
+                
+                if (speedFeatures.length > 0) {
+                    const props = speedFeatures[0].properties;
+                    // Detecta diferentes campos comunes para que encaje independientemente de su estructura
+                    const geoSpeed = props.maxspeed || props.speed || props.VELOCIDAD || props.velocidad || props.max_speed || props.MAXSPEED || props.limit || props.limite;
+                    if (geoSpeed) {
+                        let parsedSpeed = parseInt(geoSpeed);
+                        if (!isNaN(parsedSpeed) && parsedSpeed > 0) {
+                            limite = parsedSpeed; // Sobrescribe con el GeoJSON real
+                        }
+                    }
+                }
+            }
+            
+            // Actualiza en el Dashboard de Velocidad
+            document.getElementById('speed-limit-value').innerText = limite;
         }
 
         function arrancarSeguimientoGPS() {
@@ -866,6 +890,9 @@
                 const arrowElement = document.querySelector('.nav-arrow-marker');
                 if (arrowElement) { arrowElement.style.transform = `rotate(${lastValidBearing}deg)`; }
                
+                // Comprobación de límites dinámicos en tiempo real (con o sin ruta activa)
+                actualizarLimiteVelocidad();
+
                 if (rutaActiva) {
                     procesarLogicaOffline();
 
