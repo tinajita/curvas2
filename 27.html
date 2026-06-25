@@ -403,7 +403,7 @@
                         }
                     },
 
-                    // FILTRADO DE NOMBRES ACTUALIZADO: Comprueba todos los campos posibles en PMTiles (class, kind, type, place, pmap:kind)
+                    // FILTRADO DE NOMBRES ACTUALIZADO: Comprueba todos los campos posibles (class, kind, type, place, pmap:kind)
                     { 
                         "id": "nombres-ciudades", 
                         "type": "symbol", 
@@ -411,11 +411,11 @@
                         "source-layer": "places", 
                         "filter": [
                             "any",
-                            ["==", ["get", "class"], "city"], ["==", ["get", "class"], "town"], ["==", ["get", "class"], "village"],
-                            ["==", ["get", "kind"], "city"], ["==", ["get", "kind"], "town"], ["==", ["get", "kind"], "village"],
-                            ["==", ["get", "type"], "city"], ["==", ["get", "type"], "town"], ["==", ["get", "type"], "village"],
-                            ["==", ["get", "place"], "city"], ["==", ["get", "place"], "town"], ["==", ["get", "place"], "village"],
-                            ["==", ["get", "pmap:kind"], "city"], ["==", ["get", "pmap:kind"], "town"], ["==", ["get", "pmap:kind"], "village"]
+                            ["match", ["get", "class"], ["city", "town", "village", "municipality"], true, false],
+                            ["match", ["get", "kind"], ["city", "town", "village", "municipality"], true, false],
+                            ["match", ["get", "place"], ["city", "town", "village", "municipality"], true, false],
+                            ["match", ["get", "pmap:kind"], ["city", "town", "village", "municipality"], true, false],
+                            ["match", ["get", "type"], ["city", "town", "village", "municipality"], true, false]
                         ],
                         "layout": { "text-field": ["get", "name"], "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"], "text-size": ["interpolate", ["linear"], ["zoom"], 8, 12, 15, 18], "text-max-width": 8 }, 
                         "paint": { "text-color": "#ffffff", "text-halo-color": "rgba(0, 0, 0, 0.95)", "text-halo-width": 2.5 } 
@@ -427,11 +427,11 @@
                         "source-layer": "place", 
                         "filter": [
                             "any",
-                            ["==", ["get", "class"], "city"], ["==", ["get", "class"], "town"], ["==", ["get", "class"], "village"],
-                            ["==", ["get", "kind"], "city"], ["==", ["get", "kind"], "town"], ["==", ["get", "kind"], "village"],
-                            ["==", ["get", "type"], "city"], ["==", ["get", "type"], "town"], ["==", ["get", "type"], "village"],
-                            ["==", ["get", "place"], "city"], ["==", ["get", "place"], "town"], ["==", ["get", "place"], "village"],
-                            ["==", ["get", "pmap:kind"], "city"], ["==", ["get", "pmap:kind"], "town"], ["==", ["get", "pmap:kind"], "village"]
+                            ["match", ["get", "class"], ["city", "town", "village", "municipality"], true, false],
+                            ["match", ["get", "kind"], ["city", "town", "village", "municipality"], true, false],
+                            ["match", ["get", "place"], ["city", "town", "village", "municipality"], true, false],
+                            ["match", ["get", "pmap:kind"], ["city", "town", "village", "municipality"], true, false],
+                            ["match", ["get", "type"], ["city", "town", "village", "municipality"], true, false]
                         ],
                         "layout": { "text-field": ["get", "name"], "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"], "text-size": ["interpolate", ["linear"], ["zoom"], 8, 12, 15, 18], "text-max-width": 8 }, 
                         "paint": { "text-color": "#ffffff", "text-halo-color": "rgba(0, 0, 0, 0.95)", "text-halo-width": 2.5 } 
