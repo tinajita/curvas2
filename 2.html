@@ -440,7 +440,62 @@
                     
                     { "id": "carreteras-secundarias", "type": "line", "source": "mapa-curvas-source", "source-layer": "roads", "layout": { "line-join": "round", "line-cap": "round" }, "paint": { "line-color": "#ffffff", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.0, 15, 3.0, 20, 8.0] } },
                     { "id": "carreteras-principales", "type": "line", "source": "mapa-curvas-source", "source-layer": "roads", "filter": ["any", ["match", ["get", "class"], ["primary", "secondary", "tertiary"], true, false], ["match", ["get", "kind"], ["primary", "secondary", "tertiary"], true, false]], "layout": { "line-join": "round", "line-cap": "round" }, "paint": { "line-color": "#ffffff", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 2.0, 15, 6.0, 20, 18.0] } },
-                    { "id": "autovias", "type": "line", "source": "mapa-curvas-source", "source-layer": "roads", "filter": ["any", ["==", ["get", "class"], "motorway"], ["==", ["get", "kind"], "motorway"]], "layout": { "line-join": "round", "line-cap": "round" }, "paint": { "line-color": "#ffffff", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 4.0, 15, 10.0, 20, 32.0] } }
+                    { "id": "autovias", "type": "line", "source": "mapa-curvas-source", "source-layer": "roads", "filter": ["any", ["==", ["get", "class"], "motorway"], ["==", ["get", "kind"], "motorway"]], "layout": { "line-join": "round", "line-cap": "round" }, "paint": { "line-color": "#ffffff", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 4.0, 15, 10.0, 20, 32.0] } },
+
+                    { 
+                        "id": "etiquetas-carreteras", 
+                        "type": "symbol", 
+                        "source": "mapa-curvas-source", 
+                        "source-layer": "roads", 
+                        "minzoom": 11,
+                        "layout": { 
+                            "symbol-placement": "line", 
+                            "text-field": ["coalesce", ["get", "name"], ["get", "ref"], ""], 
+                            "text-font": ["Open Sans Regular"], 
+                            "text-size": ["interpolate", ["linear"], ["zoom"], 11, 10, 15, 13], 
+                            "text-keep-upright": true,
+                            "symbol-spacing": 350
+                        }, 
+                        "paint": { 
+                            "text-color": "#ffffff", 
+                            "text-halo-color": "rgba(40, 48, 40, 0.9)", 
+                            "text-halo-width": 2 
+                        } 
+                    },
+                    { 
+                        "id": "etiquetas-lugares-place", 
+                        "type": "symbol", 
+                        "source": "mapa-curvas-source", 
+                        "source-layer": "place", 
+                        "layout": { 
+                            "text-field": ["get", "name"], 
+                            "text-font": ["Open Sans Bold"], 
+                            "text-size": ["interpolate", ["linear"], ["zoom"], 8, 11, 13, 16], 
+                            "text-transform": "uppercase"
+                        }, 
+                        "paint": { 
+                            "text-color": "#00ff66", 
+                            "text-halo-color": "rgba(20, 25, 20, 0.9)", 
+                            "text-halo-width": 2.5 
+                        } 
+                    },
+                    { 
+                        "id": "etiquetas-lugares-places", 
+                        "type": "symbol", 
+                        "source": "mapa-curvas-source", 
+                        "source-layer": "places", 
+                        "layout": { 
+                            "text-field": ["get", "name"], 
+                            "text-font": ["Open Sans Bold"], 
+                            "text-size": ["interpolate", ["linear"], ["zoom"], 8, 11, 13, 16], 
+                            "text-transform": "uppercase"
+                        }, 
+                        "paint": { 
+                            "text-color": "#00ff66", 
+                            "text-halo-color": "rgba(20, 25, 20, 0.9)", 
+                            "text-halo-width": 2.5 
+                        } 
+                    }
                 ]
             };
 
@@ -623,7 +678,6 @@
             isRecalculating = false;
         }
 
-        /* LÓGICA DE PROCESAMIENTO OFFLINE Y DETECCIÓN MATEMÁTICA DE CURVAS MEJORADA */
         function procesarLogicaOffline() {
             if (!rutaActiva || !geometriaRutaGuardada || typeof turf === 'undefined') return;
 
@@ -708,7 +762,6 @@
                 document.getElementById('total-time-display').innerHTML = `<span>${remainingMinutos}</span> MIN`;
             }
 
-            // Ventana de análisis hacia adelante (0.4 km)
             const lookBehindKm = 0.03; 
             const sliceStart = Math.max(0, distCurrentKm - lookBehindKm);
             const actualLookBehind = distCurrentKm - sliceStart;
@@ -720,11 +773,10 @@
             let detectedCurve = false;
             let curveStartDist = 0;
             let curveLengthMeters = 0;
-            let maxHeadingRate = 0; // Grados por metro (Tasa máxima de curvatura)
+            let maxHeadingRate = 0;
             let totalAngleAccum = 0;
             let curveDir = null;
 
-            // Resolución de muestreo mejorada a 10 metros (0.01 km)
             const stepKm = 0.01;
 
             if (upcomingLengthKm > stepKm * 2) {
@@ -741,22 +793,19 @@
                     let futureHeading = turf.bearing(p1, p2);
                     let prevHeading = turf.bearing(pPrev, p1);
 
-                    // Cambio de ángulo acumulado desde el inicio
                     let diffTotal = futureHeading - startHeading;
                     while (diffTotal <= -180) diffTotal += 360;
                     while (diffTotal > 180) diffTotal -= 360;
 
-                    // Cambio de ángulo local (tasa instantánea)
                     let diffLocal = futureHeading - prevHeading;
                     while (diffLocal <= -180) diffLocal += 360;
                     while (diffLocal > 180) diffLocal -= 360;
 
                     let absDiffTotal = Math.abs(diffTotal);
                     let absDiffLocal = Math.abs(diffLocal);
-                    let localRate = absDiffLocal / 10; // Grados por metro
+                    let localRate = absDiffLocal / 10; 
 
                     if (!detectedCurve) {
-                        // Umbral de inicio de curva: desviación local mayor a 10 grados en 10 metros
                         if (absDiffLocal >= 10 || absDiffTotal >= 12) {
                             detectedCurve = true;
                             curveStartDist = (d - actualLookBehind) * 1000;
@@ -766,7 +815,6 @@
                             curveLengthMeters = 10;
                         }
                     } else {
-                        // Verificar si continúa la misma curva o cambia de sentido
                         let isSameDir = (curveDir === 'der' && diffLocal >= -5) || (curveDir === 'izq' && diffLocal <= 5);
 
                         if (isSameDir && absDiffLocal > 1) {
@@ -776,7 +824,6 @@
                                 maxHeadingRate = localRate;
                             }
                         } else {
-                            // Salida o cambio brusco de sentido
                             break;
                         }
                     }
@@ -787,10 +834,8 @@
                 }
             }
 
-            // Clasificación cromática por severidad matemática
             let peligrosidad = 'low';
             if (detectedCurve && curveLengthMeters > 0) {
-                // Evaluamos tanto la tasa máxima de curvatura (grados/metro) como el giro acumulado total
                 if (maxHeadingRate >= 3.5 || totalAngleAccum >= 65) {
                     peligrosidad = 'high';
                 } else if (maxHeadingRate >= 1.8 || totalAngleAccum >= 30) {
